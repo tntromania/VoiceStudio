@@ -6,27 +6,33 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configurare Path
+// --- Configurări generale ---
 const APP_PATH = '/apps/VoiceStudio';
+const PUBLIC_PATH = path.join(__dirname, 'apps', 'VoiceStudio', 'public');
 
-// --- CHEIA TA RAPIDAPI ---
+// --- RAPIDAPI ---
 const RAPID_API_KEY = '7efb2ec2c9msh9064cf9c42d6232p172418jsn9da8ae5664d3';
 const RAPID_API_HOST = 'open-ai-text-to-speech1.p.rapidapi.com';
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// 1. Health check - Esențial pentru Coolify să știe că serverul e "viu"
+// ----------------------------
+// 1️⃣ Health Check
+// ----------------------------
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok' });
 });
 
-// 2. API endpoint - Prefixat corect
+// ----------------------------
+// 2️⃣ API Endpoint - Generare voce
+// ----------------------------
 app.post(`${APP_PATH}/api/generate`, async (req, res) => {
     const { text, voice, instructions, speed } = req.body;
-    
-    console.log('📝 Request primit pentru voce:', { voice, speed });
-    
+
+    console.log('📝 Request generare voce:', { voice, speed, text: text?.substring(0,50) });
+
     if (!text) return res.status(400).json({ error: 'Text lipsă.' });
 
     try {
@@ -46,7 +52,7 @@ app.post(`${APP_PATH}/api/generate`, async (req, res) => {
                     'x-rapidapi-key': RAPID_API_KEY
                 },
                 responseType: 'arraybuffer',
-                timeout: 30000 
+                timeout: 30000
             }
         );
 
@@ -54,32 +60,48 @@ app.post(`${APP_PATH}/api/generate`, async (req, res) => {
         res.send(response.data);
     } catch (err) {
         console.error('❌ Eroare RapidAPI:', err.message);
-        res.status(500).json({ error: 'Eroare la generarea vocii.' });
+        if (err.response) {
+            res.status(err.response.status).json({ 
+                error: 'Eroare API RapidAPI', 
+                details: err.response.data 
+            });
+        } else {
+            res.status(500).json({ error: 'Eroare la generarea vocii.' });
+        }
     }
 });
 
-// 3. Servirea fișierelor statice (CSS, JS, Imagini)
-// Spunem serverului că tot ce e în folderul 'public' aparține rutei /apps/VoiceStudio
-app.use(APP_PATH, express.static(path.join(__dirname, 'public')));
+// ----------------------------
+// 3️⃣ Servirea fișierelor statice (CSS, JS, imagini)
+// ----------------------------
+app.use(APP_PATH, express.static(PUBLIC_PATH));
 
-// 4. Rutarea pentru HTML (index.html)
-// Această rută prinde: /apps/VoiceStudio, /apps/VoiceStudio/, și /apps/VoiceStudio/index.html
+// ----------------------------
+// 4️⃣ Rutare pentru HTML (index.html)
+// ----------------------------
 app.get([APP_PATH, `${APP_PATH}/`, `${APP_PATH}/index.html`], (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(PUBLIC_PATH, 'index.html'));
 });
 
-// 5. Fallback - Dacă se accesează o rută greșită sub acest path, trimitem tot la index.html
+// ----------------------------
+// 5️⃣ Fallback - SPA routing
+// ----------------------------
 app.get(`${APP_PATH}/*`, (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(PUBLIC_PATH, 'index.html'));
 });
 
-// Error handling
+// ----------------------------
+// 6️⃣ Error handling global
+// ----------------------------
 app.use((err, req, res, next) => {
     console.error('🔥 Server Error:', err.stack);
     res.status(500).send('Ceva nu a mers bine pe server!');
 });
 
+// ----------------------------
+// Start server
+// ----------------------------
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 VoiceStudio activ pe portul ${PORT}`);
-    console.log(`🔗 URL: https://creatorsmart.ro${APP_PATH}/index.html`);
+    console.log(`🔗 URL: http://localhost:${PORT}${APP_PATH}/index.html`);
 });
