@@ -7,11 +7,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // --- Configurări generale ---
-const APP_PATH = '/apps/VoiceStudio';
+const APP_PATH = '/apps/voicestudio'; // recomand lowercase pentru consistency
 const PUBLIC_PATH = path.join(__dirname, 'apps', 'VoiceStudio', 'public');
 
 // --- RAPIDAPI ---
-const RAPID_API_KEY = '7efb2ec2c9msh9064cf9c42d6232p172418jsn9da8ae5664d3';
+const RAPID_API_KEY = process.env.RAPID_API_KEY || '7efb2ec2c9msh9064cf9c42d6232p172418jsn9da8ae5664d3';
 const RAPID_API_HOST = 'open-ai-text-to-speech1.p.rapidapi.com';
 
 // Middleware
@@ -103,5 +103,5 @@ app.use((err, req, res, next) => {
 // ----------------------------
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 VoiceStudio activ pe portul ${PORT}`);
-    console.log(`🔗 URL: http://localhost:${PORT}${APP_PATH}/index.html`);
+    console.log(`🔗 URL: https://creatorsmart.ro${APP_PATH}/index.html`);
 });
