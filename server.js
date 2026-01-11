@@ -53,7 +53,10 @@ app.post(BASE_PATH + '/api/generate', async (req, res) => {
         res.status(500).json({ error: 'Eroare la generarea vocii.' });
     }
 });
-
+// Ruta de fallback - TRIMITE LA INDEX.HTML din PUBLIC
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 // Health check pentru Coolify
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok' });
