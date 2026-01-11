@@ -3,20 +3,25 @@ const cors = require('cors');
 const axios = require('axios');
 const path = require('path');
 const app = express();
+
+// Portul pentru Coolify (3000)
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 
-// Servim fișierele din folderul public
+// 1. Servim fișierele statice din folderul "public"
+// Asigură-te că index.html este în folderul /public
 app.use(express.static(path.join(__dirname, 'public')));
 
 const RAPID_API_KEY = '7efb2ec2c9msh9064cf9c42d6232p172418jsn9da8ae5664d3';
 const RAPID_API_HOST = 'open-ai-text-to-speech1.p.rapidapi.com';
 
-// Endpoint-ul pentru generare voce
+// 2. Endpoint-ul pentru generare voce
 app.post('/api/generate', async (req, res) => {
     const { text, voice, instructions, speed } = req.body;
+    
+    console.log(`[TTS] Cerere nouă pentru vocea: ${voice || 'alloy'}`);
     
     if (!text) return res.status(400).json({ error: 'Text lipsă.' });
 
@@ -40,13 +45,19 @@ app.post('/api/generate', async (req, res) => {
         res.send(response.data);
 
     } catch (error) {
-        console.error("Eroare API:", error.message);
+        console.error("Eroare API:", error.response ? error.response.data.toString() : error.message);
         res.status(500).json({ error: 'Eroare la generarea vocii.' });
     }
 });
 
-// REPARARE EROARE: Pentru Express 5, folosim variabila capture corectă
-app.get('/:any*', (req, res) => {
+// 3. REPARARE EXPRESS 5: Metoda "Catch-all" fără caractere speciale
+// Trimitem index.html pentru orice rută care nu a fost găsită mai sus
+app.use((req, res, next) => {
+    // Dacă cererea este pentru API dar a ajuns aici, înseamnă că ruta e greșită
+    if (req.url.startsWith('/api')) {
+        return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    // Pentru orice altceva (navigare directă), trimitem interfața
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
