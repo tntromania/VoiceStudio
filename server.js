@@ -1,23 +1,23 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
-const path = require('path'); // Adăugat
+const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 
-// SERVIRE FIȘIERE STATICE (Aici e magia)
+// Servim fișierele din folderul public
 app.use(express.static(path.join(__dirname, 'public')));
 
 const RAPID_API_KEY = '7efb2ec2c9msh9064cf9c42d6232p172418jsn9da8ae5664d3';
 const RAPID_API_HOST = 'open-ai-text-to-speech1.p.rapidapi.com';
 
+// Endpoint-ul pentru generare voce
 app.post('/api/generate', async (req, res) => {
     const { text, voice, instructions, speed } = req.body;
-    console.log(`[TTS HD] Generare pentru: ${voice}`);
-
+    
     if (!text) return res.status(400).json({ error: 'Text lipsă.' });
 
     try {
@@ -45,8 +45,8 @@ app.post('/api/generate', async (req, res) => {
     }
 });
 
-// Ruta de bază care încarcă index.html
-app.get('*', (req, res) => {
+// REPARARE EROARE: Pentru Express 5, folosim variabila capture corectă
+app.get('/:any*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
