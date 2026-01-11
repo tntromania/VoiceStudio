@@ -191,171 +191,184 @@
     <audio id="audio" style="display:none"></audio>
 </div>
 <script>
-    // În index.html din folderul VoiceStudio
+    // ✅ Calea corectă pentru API
     const SERVER = '/apps/VoiceStudio/api/generate';
-    const txt=document.getElementById('txt');
-    const spdSlider=document.getElementById('spdSlider');
-    const audio=document.getElementById('audio');
-    const player=document.getElementById('player');
-    const playBtn=document.getElementById('playBtn');
 
-    txt.value=localStorage.getItem('vp_text')||'';
+    const txt = document.getElementById('txt');
+    const spdSlider = document.getElementById('spdSlider');
+    const audio = document.getElementById('audio');
+    const player = document.getElementById('player');
+    const playBtn = document.getElementById('playBtn');
+
+    // Load saved text
+    txt.value = localStorage.getItem('vp_text') || '';
     updateCount();
 
-    txt.addEventListener('input',()=>{
+    txt.addEventListener('input', () => {
         updateCount();
-        localStorage.setItem('vp_text',txt.value);
+        localStorage.setItem('vp_text', txt.value);
     });
 
-    spdSlider.oninput=(e)=>{
-        const v=parseFloat(e.target.value);
-        document.getElementById('spdVal').textContent=v.toFixed(2)+'x';
-        e.target.style.setProperty('--value',(v-0.6)/(1.4-0.6)*100+'%');
+    spdSlider.oninput = (e) => {
+        const v = parseFloat(e.target.value);
+        document.getElementById('spdVal').textContent = v.toFixed(2) + 'x';
+        e.target.style.setProperty('--value', (v - 0.6) / (1.4 - 0.6) * 100 + '%');
     };
     spdSlider.dispatchEvent(new Event('input'));
 
-    function updateCount(){
-        const len=txt.value.length;
-        document.getElementById('charCnt').textContent=len+' / 5000';
-        document.getElementById('charCnt').style.color=len>5000?'#ef4444':'var(--accent)';
+    function updateCount() {
+        const len = txt.value.length;
+        document.getElementById('charCnt').textContent = len + ' / 5000';
+        document.getElementById('charCnt').style.color = len > 5000 ? '#ef4444' : 'var(--accent)';
     }
 
-    function updateVoice(){
-        const s=document.getElementById('vSel');
-        const o=s.options[s.selectedIndex];
-        document.getElementById('vName').textContent=o.text;
-        document.getElementById('vDesc').textContent=o.dataset.desc;
-        document.getElementById('vAvatar').textContent=o.text[0];
+    function updateVoice() {
+        const s = document.getElementById('vSel');
+        const o = s.options[s.selectedIndex];
+        document.getElementById('vName').textContent = o.text;
+        document.getElementById('vDesc').textContent = o.dataset.desc;
+        document.getElementById('vAvatar').textContent = o.text[0];
     }
 
-    function setTone(val,el){
-        document.getElementById('toneInp').value=val;
-        document.querySelectorAll('.tone-btn').forEach(c=>c.classList.remove('active'));
+    function setTone(val, el) {
+        document.getElementById('toneInp').value = val;
+        document.querySelectorAll('.tone-btn').forEach(c => c.classList.remove('active'));
         el.classList.add('active');
     }
 
-    function clearText(){
-        if(confirm('Clear all text?')){
-            txt.value='';
+    function clearText() {
+        if (confirm('Clear all text?')) {
+            txt.value = '';
             updateCount();
             localStorage.removeItem('vp_text');
         }
     }
 
-    async function pasteText(){
-        try{
-            const text=await navigator.clipboard.readText();
-            txt.value=text;
+    async function pasteText() {
+        try {
+            const text = await navigator.clipboard.readText();
+            txt.value = text;
             updateCount();
-        }catch(e){alert('Paste failed. Use Ctrl+V instead.')}
+        } catch (e) {
+            alert('Paste failed. Use Ctrl+V instead.');
+        }
     }
 
-    function copyText(){
-        if(!txt.value)return alert('No text to copy!');
+    function copyText() {
+        if (!txt.value) return alert('No text to copy!');
         navigator.clipboard.writeText(txt.value);
         showNotification('Text copied!');
     }
 
-    function sampleText(){
+    function sampleText() {
         return "Welcome to Voice Pro, the next generation text-to-speech platform. Experience natural, human-like voices with advanced AI technology. Transform your content into engaging audio with just a few clicks.";
     }
 
-    function showNotification(msg){
-        const div=document.createElement('div');
-        div.textContent=msg;
-        div.style.cssText='position:fixed;top:100px;left:50%;transform:translateX(-50%);background:rgba(167,139,250,.95);color:#000;padding:16px 32px;border-radius:12px;font-weight:700;z-index:1000;animation:slideDown .3s ease';
+    function showNotification(msg) {
+        const div = document.createElement('div');
+        div.textContent = msg;
+        div.style.cssText = 'position:fixed;top:100px;left:50%;transform:translateX(-50%);background:rgba(167,139,250,.95);color:#000;padding:16px 32px;border-radius:12px;font-weight:700;z-index:1000;animation:slideDown .3s ease';
         document.body.appendChild(div);
-        setTimeout(()=>div.remove(),2000);
+        setTimeout(() => div.remove(), 2000);
     }
 
-    async function generate(){
-        const text=txt.value.trim();
-        if(!text)return alert("Please enter some text!");
-        if(text.length>5000)return alert("Text too long! Max 5000 characters.");
+    async function generate() {
+        const text = txt.value.trim();
+        if (!text) return alert("Please enter some text!");
+        if (text.length > 5000) return alert("Text too long! Max 5000 characters.");
 
-        const btn=document.getElementById('genBtn');
+        const btn = document.getElementById('genBtn');
         btn.classList.add('loading');
-        btn.disabled=true;
-        document.getElementById('genTxt').innerHTML='<i class="fas fa-spinner fa-spin"></i> Generating...';
+        btn.disabled = true;
+        document.getElementById('genTxt').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
 
-        try{
-            const res=await fetch(SERVER,{
-                method:'POST',
-                headers:{'Content-Type':'application/json'},
-                body:JSON.stringify({
+        try {
+            console.log('🔄 Sending request to:', SERVER);
+
+            const res = await fetch(SERVER, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
                     text,
-                    voice:document.getElementById('vSel').value,
-                    speed:spdSlider.value,
-                    instructions:document.getElementById('toneInp').value
+                    voice: document.getElementById('vSel').value,
+                    speed: spdSlider.value,
+                    instructions: document.getElementById('toneInp').value
                 })
             });
 
-            if(!res.ok)throw new Error("Generation failed");
-            const blob=await res.blob();
-            const url=URL.createObjectURL(blob);
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+                throw new Error(errorData.error || `Server error: ${res.status}`);
+            }
+
+            const blob = await res.blob();
+            console.log('✅ Audio received:', blob.size, 'bytes');
+
+            const url = URL.createObjectURL(blob);
 
             setupPlayer(url);
-            addHistory(text,document.getElementById('vName').textContent,url);
+            addHistory(text, document.getElementById('vName').textContent, url);
             showNotification('✨ Speech generated!');
-        }catch(e){
-            alert("Error: "+e.message);
-        }finally{
+        } catch (e) {
+            console.error('❌ Generation error:', e);
+            alert("Error: " + e.message);
+        } finally {
             btn.classList.remove('loading');
-            btn.disabled=false;
-            document.getElementById('genTxt').innerHTML='<i class="fas fa-wand-magic-sparkles"></i> Generate Speech';
+            btn.disabled = false;
+            document.getElementById('genTxt').innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Generate Speech';
         }
     }
 
-    function setupPlayer(url){
-        audio.src=url;
-        document.getElementById('dlLink').href=url;
+    function setupPlayer(url) {
+        audio.src = url;
+        document.getElementById('dlLink').href = url;
         player.classList.add('active');
         audio.play();
         updatePlayIcon(true);
     }
 
-    playBtn.onclick=()=>{
-        if(audio.paused){
+    playBtn.onclick = () => {
+        if (audio.paused) {
             audio.play();
             updatePlayIcon(true);
-        }else{
+        } else {
             audio.pause();
             updatePlayIcon(false);
         }
     };
 
-    audio.onended=()=>updatePlayIcon(false);
+    audio.onended = () => updatePlayIcon(false);
 
-    function updatePlayIcon(playing){
-        playBtn.innerHTML=playing?'<i class="fas fa-pause"></i>':'<i class="fas fa-play"></i>';
-        player.classList.toggle('playing',playing);
+    function updatePlayIcon(playing) {
+        playBtn.innerHTML = playing ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
+        player.classList.toggle('playing', playing);
     }
 
-    function addHistory(text,voice,url){
-        const hist=JSON.parse(localStorage.getItem('vp_hist')||'[]');
-        const preview=text.length>80?text.substring(0,80)+'...':text;
+    function addHistory(text, voice, url) {
+        const hist = JSON.parse(localStorage.getItem('vp_hist') || '[]');
+        const preview = text.length > 80 ? text.substring(0, 80) + '...' : text;
         hist.unshift({
-            text:preview,
+            text: preview,
             voice,
-            time:new Date().toLocaleString('ro-RO',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'}),
+            time: new Date().toLocaleString('ro-RO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' }),
             url,
-            id:Date.now()
+            id: Date.now()
         });
-        if(hist.length>15)hist.pop();
-        localStorage.setItem('vp_hist',JSON.stringify(hist));
+        if (hist.length > 15) hist.pop();
+        localStorage.setItem('vp_hist', JSON.stringify(hist));
         renderHistory();
     }
 
-    function renderHistory(){
-        const hist=JSON.parse(localStorage.getItem('vp_hist')||'[]');
-        const list=document.getElementById('histList');
+    function renderHistory() {
+        const hist = JSON.parse(localStorage.getItem('vp_hist') || '[]');
+        const list = document.getElementById('histList');
 
-        if(!hist.length){
-            list.innerHTML='<div class="empty-history"><i class="fas fa-clock-rotate-left"></i><p>No generations yet. Create your first one above!</p></div>';
+        if (!hist.length) {
+            list.innerHTML = '<div class="empty-history"><i class="fas fa-clock-rotate-left"></i><p>No generations yet. Create your first one above!</p></div>';
             return;
         }
 
-        list.innerHTML=hist.map(h=>`
+        list.innerHTML = hist.map(h => `
 <div class="history-item">
 <div class="history-text">${h.text}</div>
 <div class="history-meta">
