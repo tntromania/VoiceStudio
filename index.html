@@ -2,692 +2,401 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alex Studio | Content Creation Hub 2026</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Voice Pro | AI Studio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
     <style>
-        :root {
-            --bg-body: #000000;
-            --bg-sidebar: #0a0a0a;
-            --bg-card: #0f0f0f;
-            --bg-card-hover: #1a1a1a;
-            --border: #1f1f1f;
-            --primary: #6366f1;
-            --accent: #ec4899;
-            --text-main: #ffffff;
-            --text-muted: #94a3b8;
-            --sidebar-width: 280px;
-            --glow-primary: rgba(99, 102, 241, 0.15);
-            --glow-accent: rgba(236, 72, 153, 0.15);
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
-
-        body {
-            background: radial-gradient(ellipse at top, #0f172a 0%, #000 50%);
-            color: var(--text-main);
-            height: 100vh;
-            display: flex;
-            overflow: hidden;
-            position: relative;
-        }
-
-        /* Animated background gradient */
-        body::before {
-            content: '';
-            position: fixed;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background:
-                    radial-gradient(circle at 20% 50%, var(--glow-primary) 0%, transparent 50%),
-                    radial-gradient(circle at 80% 80%, var(--glow-accent) 0%, transparent 50%);
-            animation: rotate 20s linear infinite;
-            opacity: 0.3;
-            z-index: 0;
-        }
-
-        @keyframes rotate {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        a { text-decoration: none; color: inherit; }
-
-        /* --- SIDEBAR --- */
-        .sidebar {
-            width: var(--sidebar-width);
-            background: rgba(10, 10, 10, 0.8);
-            backdrop-filter: blur(20px);
-            border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            padding: 30px 20px;
-            z-index: 10;
-            justify-content: space-between;
-            position: relative;
-        }
-
-        .logo {
-            font-size: 1.5rem;
-            font-weight: 800;
-            margin-bottom: 50px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            letter-spacing: -0.5px;
-        }
-
-        .logo-icon {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #6366f1, #ec4899);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            box-shadow: 0 4px 20px var(--glow-primary);
-        }
-
-        .nav-menu {
-            list-style: none;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .nav-item {
-            padding: 14px 18px;
-            border-radius: 14px;
-            cursor: pointer;
-            color: var(--text-muted);
-            font-size: 0.95rem;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-        }
-
-        .nav-item:hover {
-            background: rgba(255,255,255,0.05);
-            color: #fff;
-            transform: translateX(5px);
-        }
-
-        .nav-item.active {
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15));
-            color: #fff;
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            box-shadow: 0 4px 20px var(--glow-primary);
-        }
-
-        .nav-item.active::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 4px;
-            height: 60%;
-            background: linear-gradient(180deg, #6366f1, #a855f7);
-            border-radius: 0 4px 4px 0;
-        }
-
-        .usage-box {
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(168, 85, 247, 0.05));
-            border: 1px solid var(--border);
-            border-radius: 18px;
-            padding: 24px;
-            margin-top: auto;
-            backdrop-filter: blur(10px);
-        }
-
-        .usage-title {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            margin-bottom: 18px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .plan-badge {
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-            color: #000;
-            padding: 3px 8px;
-            border-radius: 6px;
-            font-size: 0.65rem;
-            font-weight: 800;
-        }
-
-        .progress-item { margin-bottom: 16px; }
-        .progress-label {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.8rem;
-            margin-bottom: 8px;
-            color: #ccc;
-        }
-        .progress-track {
-            width: 100%;
-            height: 8px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 4px;
-            overflow: hidden;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
-        }
-        .progress-fill {
-            height: 100%;
-            border-radius: 4px;
-            transition: width 0.5s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .progress-fill::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            animation: shimmer 2s infinite;
-        }
-
-        @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-        }
-
-        .fill-purple { background: linear-gradient(90deg, #6366f1, #8b5cf6); width: 77%; }
-        .fill-pink { background: linear-gradient(90deg, #ec4899, #f43f5e); width: 42%; }
-
-        .upgrade-btn {
-            width: 100%;
-            padding: 14px;
-            margin-top: 18px;
-            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-            border: none;
-            border-radius: 12px;
-            color: #fff;
-            font-weight: 700;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .upgrade-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 30px rgba(99, 102, 241, 0.6);
-        }
-
-        /* --- MAIN CONTENT --- */
-        .main-content {
-            flex: 1;
-            padding: 40px 50px;
-            overflow-y: auto;
-            position: relative;
-            z-index: 1;
-        }
-
-        .main-content::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .main-content::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .main-content::-webkit-scrollbar-thumb {
-            background: rgba(99, 102, 241, 0.3);
-            border-radius: 4px;
-        }
-
-        .header-section {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 50px;
-        }
-
-        .welcome h1 {
-            font-size: 2.5rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 8px;
-            letter-spacing: -1px;
-        }
-
-        .welcome p {
-            color: var(--text-muted);
-            font-size: 1.05rem;
-        }
-
-        .profile-pill {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: rgba(15, 15, 15, 0.8);
-            backdrop-filter: blur(20px);
-            padding: 10px 20px 10px 10px;
-            border: 1px solid var(--border);
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .profile-pill:hover {
-            border-color: rgba(99, 102, 241, 0.5);
-            box-shadow: 0 4px 20px var(--glow-primary);
-        }
-
-        .avatar {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #6366f1, #ec4899);
-            border-radius: 50%;
-            display: grid;
-            place-items: center;
-            font-weight: 800;
-            color: #fff;
-            font-size: 1.1rem;
-        }
-
-        /* --- APPS GRID --- */
-        .section-title {
-            font-size: 1.4rem;
-            font-weight: 700;
-            margin-bottom: 30px;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            letter-spacing: -0.5px;
-        }
-
-        .apps-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 30px;
-            margin-bottom: 60px;
-        }
-
-        .app-card {
-            background: rgba(15, 15, 15, 0.8);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            overflow: hidden;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            cursor: pointer;
-            position: relative;
-        }
-
-        .app-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, var(--glow-primary) 0%, var(--glow-accent) 100%);
-            opacity: 0;
-            transition: opacity 0.4s ease;
-            z-index: -1;
-        }
-
-        .app-card:hover {
-            transform: translateY(-12px) scale(1.02);
-            border-color: rgba(99, 102, 241, 0.5);
-            box-shadow: 0 30px 60px rgba(0,0,0,0.6), 0 0 40px var(--glow-primary);
-        }
-
-        .app-card:hover::before {
-            opacity: 0.1;
-        }
-
-        .app-preview {
-            width: 100%;
-            height: 240px;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .app-preview img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: transform 0.4s ease;
-        }
-
-        .app-card:hover .app-preview img {
-            transform: scale(1.1);
-        }
-
-        /* Gradient overlays pentru apps fără poze */
-        .preview-voice { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); }
-        .preview-video { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
-        .preview-audio { background: linear-gradient(135deg, #ec4899 0%, #f43f5e 100%); }
-
-        .app-preview i {
-            font-size: 5rem;
-            color: rgba(255,255,255,0.15);
-        }
-
-        .app-info {
-            padding: 24px;
-        }
-
-        .app-title {
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: #fff;
-            margin-bottom: 10px;
-            letter-spacing: -0.5px;
-        }
-
-        .app-desc {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            line-height: 1.7;
-            margin-bottom: 20px;
-        }
-
-        .app-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .launch-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            font-weight: 700;
-            font-size: 0.9rem;
-            color: var(--primary);
-            transition: all 0.3s ease;
-        }
-
-        .app-card:hover .launch-btn {
-            gap: 14px;
-            color: #fff;
-        }
-
-        .badge {
-            position: absolute;
-            top: 16px;
-            right: 16px;
-            padding: 8px 14px;
-            border-radius: 10px;
-            font-size: 0.7rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            z-index: 2;
-        }
-
-        .badge-pro {
-            background: linear-gradient(135deg, rgba(245, 158, 11, 0.9), rgba(217, 119, 6, 0.9));
-            color: #fff;
-        }
-        .badge-hot {
-            background: linear-gradient(135deg, rgba(239, 68, 68, 0.9), rgba(220, 38, 38, 0.9));
-            color: #fff;
-        }
-        .badge-new {
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.9), rgba(5, 150, 105, 0.9));
-            color: #fff;
-        }
-
-        .app-meta {
-            display: flex;
-            gap: 16px;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-        }
-
-        .meta-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        @media (max-width: 1200px) {
-            .sidebar { display: none; }
-            .main-content { padding: 30px; }
-            .apps-grid {
-                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-                gap: 20px;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .apps-grid { grid-template-columns: 1fr; }
-            .welcome h1 { font-size: 2rem; }
-        }
+        :root{--bg:#000;--card:#0d0d0d;--border:#1a1a1a;--accent:#a78bfa;--accent-dk:#7c3aed;--text:#fff;--muted:#94a3b8;--glow:rgba(167,139,250,.4);--success:#10b981}
+        *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+        body{font-family:Outfit,sans-serif;background:#000;color:var(--text);min-height:100vh;overflow-x:hidden;position:relative}
+        body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle at 20% 10%,rgba(167,139,250,.15) 0%,transparent 40%),radial-gradient(circle at 80% 80%,rgba(16,185,129,.1) 0%,transparent 40%);pointer-events:none;z-index:0}
+        body::after{content:'';position:fixed;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.5;z-index:100}
+        .grain{position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:1;opacity:.5}
+        .app{max-width:1600px;margin:0 auto;padding:60px 40px 140px;position:relative;z-index:2}
+        .header{text-align:center;margin-bottom:70px;position:relative}
+        .logo-main{font-size:3rem;font-weight:800;margin-bottom:12px;background:linear-gradient(135deg,var(--text) 0%,var(--accent) 50%,var(--success) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-2px;position:relative;display:inline-block}
+        .logo-main::before{content:'⚡';position:absolute;left:-50px;top:50%;transform:translateY(-50%);font-size:2.5rem;filter:drop-shadow(0 0 20px var(--glow))}
+        .tagline{color:var(--muted);font-size:1.15rem;font-weight:500;letter-spacing:2px;text-transform:uppercase}
+        .main-grid{display:grid;grid-template-columns:1.2fr 450px;gap:40px;margin-bottom:60px}
+        .editor-section{display:flex;flex-direction:column;gap:25px}
+        .card{background:rgba(13,13,13,.6);backdrop-filter:blur(40px);border:1px solid var(--border);border-radius:28px;padding:35px;position:relative;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+        .card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(167,139,250,.3),transparent)}
+        .card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:25px}
+        .card-title{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--muted)}
+        .char-count{font-family:monospace;font-size:.85rem;color:var(--accent);background:rgba(167,139,250,.1);padding:6px 14px;border-radius:8px;font-weight:600}
+        textarea{width:100%;min-height:450px;background:transparent;border:none;color:var(--text);font-family:Outfit,sans-serif;font-size:1.4rem;line-height:2;resize:none;outline:0}
+        textarea::placeholder{color:#222;font-weight:300}
+        .quick-actions{display:flex;gap:12px;flex-wrap:wrap}
+        .quick-btn{padding:10px 18px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;font-size:.85rem;cursor:pointer;transition:.3s;font-weight:500;color:var(--muted);display:flex;align-items:center;gap:8px}
+        .quick-btn:hover{border-color:var(--accent);background:rgba(167,139,250,.08);color:var(--text);transform:translateY(-2px)}
+        .quick-btn i{font-size:.9rem}
+        .settings-panel{display:flex;flex-direction:column;gap:32px}
+        .setting-block h3{font-size:.8rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:18px;font-weight:700}
+        .voice-select{background:rgba(255,255,255,.02);border:2px solid var(--border);border-radius:20px;padding:22px;cursor:pointer;transition:.3s;display:flex;align-items:center;gap:16px;position:relative}
+        .voice-select:hover{border-color:var(--accent);background:rgba(167,139,250,.06);transform:translateY(-2px);box-shadow:0 8px 30px var(--glow)}
+        .voice-avatar{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--accent),var(--accent-dk));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.5rem;box-shadow:0 8px 24px var(--glow)}
+        .voice-details{flex:1}
+        .voice-name{font-weight:700;font-size:1.1rem;margin-bottom:6px}
+        .voice-desc{font-size:.88rem;color:var(--muted)}
+        select{position:absolute;inset:0;opacity:0;cursor:pointer}
+        .voice-select i{color:var(--muted);transition:.3s}
+        .voice-select:hover i{color:var(--accent);transform:translateX(3px)}
+        .slider-wrap{margin-bottom:8px}
+        .slider-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+        .slider-label{font-size:.92rem;font-weight:600;color:var(--text)}
+        .slider-val{font-family:monospace;font-size:.95rem;color:var(--accent);background:rgba(167,139,250,.12);padding:5px 12px;border-radius:8px;font-weight:700}
+        input[type=range]{width:100%;height:8px;background:rgba(255,255,255,.04);border-radius:4px;outline:0;-webkit-appearance:none;cursor:pointer;position:relative}
+        input[type=range]::-webkit-slider-track{background:linear-gradient(to right,var(--accent) 0%,var(--accent) var(--value,50%),rgba(255,255,255,.04) var(--value,50%))}
+        input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;background:var(--text);border-radius:50%;border:4px solid var(--accent);box-shadow:0 0 0 3px rgba(167,139,250,.2),0 6px 16px var(--glow);cursor:pointer;transition:.2s}
+        input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.15);box-shadow:0 0 0 5px rgba(167,139,250,.3),0 8px 20px var(--glow)}
+        .tone-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+        .tone-btn{padding:14px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:14px;font-size:.88rem;cursor:pointer;transition:.3s;font-weight:500;text-align:center}
+        .tone-btn:hover{border-color:var(--accent);background:rgba(167,139,250,.08);transform:translateY(-2px)}
+        .tone-btn.active{background:linear-gradient(135deg,var(--accent),var(--accent-dk));border-color:var(--accent);color:#000;font-weight:700;box-shadow:0 6px 20px var(--glow)}
+        .custom-input{width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:14px;padding:14px 18px;color:var(--accent);font-size:.92rem;outline:0;transition:.3s;font-weight:500}
+        .custom-input:focus{border-color:var(--accent);background:rgba(167,139,250,.08);box-shadow:0 0 0 3px rgba(167,139,250,.1)}
+        .generate-btn{width:100%;padding:22px;background:linear-gradient(135deg,var(--accent) 0%,var(--accent-dk) 100%);color:#000;border:none;border-radius:18px;font-weight:800;font-size:1.12rem;cursor:pointer;transition:.3s;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 12px 36px var(--glow);position:relative;overflow:hidden;text-transform:uppercase;letter-spacing:1px}
+        .generate-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent,rgba(255,255,255,.3),transparent);transform:translateX(-100%) skewX(-15deg);transition:.6s}
+        .generate-btn:hover::before{transform:translateX(100%) skewX(-15deg)}
+        .generate-btn:hover:not(:disabled){transform:translateY(-3px);box-shadow:0 16px 48px var(--glow)}
+        .generate-btn:disabled{opacity:.5;cursor:not-allowed}
+        .spinner{display:none;width:20px;height:20px;border:3px solid rgba(0,0,0,.3);border-top-color:#000;border-radius:50%;animation:spin .7s linear infinite}
+        .generate-btn.loading .spinner{display:block}
+        @keyframes spin{100%{transform:rotate(360deg)}}
+        .history-section{margin-top:60px}
+        .history-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px}
+        .section-title{font-size:1.8rem;font-weight:800;background:linear-gradient(135deg,var(--text),var(--muted));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .clear-btn{padding:10px 20px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:12px;color:#ef4444;font-size:.85rem;font-weight:600;cursor:pointer;transition:.3s}
+        .clear-btn:hover{background:rgba(239,68,68,.2);transform:translateY(-2px)}
+        .history-grid{display:grid;gap:14px}
+        .history-item{background:rgba(13,13,13,.4);border:1px solid var(--border);border-radius:18px;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;transition:.3s;position:relative;overflow:hidden}
+        .history-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);transform:scaleY(0);transition:.3s}
+        .history-item:hover{border-color:rgba(167,139,250,.4);background:rgba(167,139,250,.04)}
+        .history-item:hover::before{transform:scaleY(1)}
+        .history-text{flex:1;font-size:.95rem;color:var(--text);font-weight:500;margin-right:20px}
+        .history-meta{display:flex;gap:20px;align-items:center;font-size:.82rem;color:var(--muted)}
+        .meta-badge{background:rgba(167,139,250,.1);padding:6px 12px;border-radius:8px;font-weight:600;color:var(--accent)}
+        .play-history{width:40px;height:40px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.3s;color:var(--muted)}
+        .play-history:hover{background:var(--accent);border-color:var(--accent);color:#000;transform:scale(1.1)}
+        .empty-history{text-align:center;padding:60px 20px;color:#444}
+        .empty-history i{font-size:3.5rem;margin-bottom:20px;opacity:.3}
+        .player{position:fixed;bottom:0;left:0;right:0;height:100px;background:rgba(0,0,0,.98);backdrop-filter:blur(40px);border-top:1px solid var(--border);padding:0 60px;display:flex;align-items:center;gap:25px;transform:translateY(100%);transition:.5s cubic-bezier(.4,0,.2,1);z-index:200;box-shadow:0 -10px 50px rgba(0,0,0,.8)}
+        .player.active{transform:translateY(0)}
+        .player::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+        .play-circle{width:56px;height:56px;background:linear-gradient(135deg,var(--accent),var(--accent-dk));border:none;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.3s;box-shadow:0 8px 24px var(--glow);color:#000;font-size:1.3rem}
+        .play-circle:hover{transform:scale(1.12);box-shadow:0 12px 36px var(--glow)}
+        .wave-container{flex:1;height:60px;display:flex;align-items:center;gap:5px;padding:0 20px}
+        .wave-bar{width:5px;background:rgba(255,255,255,.15);border-radius:3px;height:25%;transition:.3s;position:relative}
+        .player.playing .wave-bar{background:var(--accent);animation:wave 1.2s ease-in-out infinite}
+        .wave-bar:nth-child(2n){animation-delay:.15s}
+        .wave-bar:nth-child(3n){animation-delay:.3s}
+        .wave-bar:nth-child(4n){animation-delay:.45s}
+        @keyframes wave{0%,100%{height:25%}50%{height:90%}}
+        .dl-link{padding:12px 24px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:14px;color:var(--text);text-decoration:none;font-weight:700;font-size:.92rem;transition:.3s;display:flex;align-items:center;gap:10px;text-transform:uppercase;letter-spacing:.5px}
+        .dl-link:hover{background:rgba(167,139,250,.15);border-color:var(--accent);color:var(--accent);transform:translateY(-2px)}
+        @media (max-width:1200px){.main-grid{grid-template-columns:1fr}.settings-panel{order:-1}}
+        @media (max-width:768px){.app{padding:30px 20px 140px}.header{margin-bottom:50px}.logo-main{font-size:2.2rem}.logo-main::before{left:-40px;font-size:2rem}.tagline{font-size:.95rem}.main-grid{gap:25px}.card{padding:25px}textarea{font-size:1.2rem;min-height:350px}.tone-grid{grid-template-columns:1fr}.player{padding:0 20px;height:90px}.play-circle{width:50px;height:50px;font-size:1.1rem}.dl-link{padding:10px 18px;font-size:.85rem}.wave-container{padding:0 15px}.history-item{flex-direction:column;align-items:flex-start;gap:12px}.history-meta{flex-wrap:wrap}}
     </style>
 </head>
 <body>
-
-<div class="sidebar">
-    <div>
-        <div class="logo">
-            <div class="logo-icon">✨</div>
-            <span>Alex Studio</span>
+<div class="grain"></div>
+<div class="app">
+    <header class="header">
+        <h1 class="logo-main">Voice Pro</h1>
+        <p class="tagline">AI-Powered Speech Generation</p>
+    </header>
+    <div class="main-grid">
+        <div class="editor-section">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Input Text</span>
+                    <span class="char-count" id="charCnt">0 / 5000</span>
+                </div>
+                <textarea id="txt" placeholder="Type or paste your text here and watch it come to life..."></textarea>
+            </div>
+            <div class="card">
+                <div class="quick-actions">
+                    <button class="quick-btn" onclick="clearText()"><i class="fas fa-eraser"></i> Clear</button>
+                    <button class="quick-btn" onclick="pasteText()"><i class="fas fa-paste"></i> Paste</button>
+                    <button class="quick-btn" onclick="copyText()"><i class="fas fa-copy"></i> Copy</button>
+                    <button class="quick-btn" onclick="txt.value=sampleText();updateCount()"><i class="fas fa-flask"></i> Sample Text</button>
+                </div>
+            </div>
         </div>
-        <ul class="nav-menu">
-            <li class="nav-item active"><i class="fa-solid fa-grid-2"></i> Dashboard</li>
-            <li class="nav-item"><i class="fa-solid fa-layer-group"></i> All Tools</li>
-            <li class="nav-item"><i class="fa-solid fa-folder-open"></i> Projects</li>
-            <li class="nav-item"><i class="fa-solid fa-chart-pie"></i> Analytics</li>
-            <li class="nav-item"><i class="fa-solid fa-gear"></i> Settings</li>
-        </ul>
+        <div class="settings-panel">
+            <div class="card">
+                <div class="setting-block">
+                    <h3>Voice Model</h3>
+                    <div class="voice-select">
+                        <div class="voice-avatar" id="vAvatar">A</div>
+                        <div class="voice-details">
+                            <div class="voice-name" id="vName">Alloy</div>
+                            <div class="voice-desc" id="vDesc">Neutral & Balanced</div>
+                        </div>
+                        <select id="vSel" onchange="updateVoice()">
+                            <option value="alloy" data-desc="Neutral & Balanced">Alloy</option>
+                            <option value="echo" data-desc="Masculine & Deep">Echo</option>
+                            <option value="fable" data-desc="British & Narrative">Fable</option>
+                            <option value="onyx" data-desc="Deep & Intense">Onyx</option>
+                            <option value="nova" data-desc="Feminine & Warm">Nova</option>
+                            <option value="shimmer" data-desc="Clear & Bright">Shimmer</option>
+                        </select>
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                </div>
+                <div class="setting-block">
+                    <h3>Speech Speed</h3>
+                    <div class="slider-wrap">
+                        <div class="slider-top">
+                            <span class="slider-label">Playback Rate</span>
+                            <span class="slider-val" id="spdVal">1.00x</span>
+                        </div>
+                        <input type="range" id="spdSlider" min="0.6" max="1.4" step="0.01" value="1.0">
+                    </div>
+                </div>
+                <div class="setting-block">
+                    <h3>Tone & Style</h3>
+                    <div class="tone-grid">
+                        <div class="tone-btn active" onclick="setTone('Clear professional tone',this)">Professional</div>
+                        <div class="tone-btn" onclick="setTone('Warm and friendly',this)">Friendly</div>
+                        <div class="tone-btn" onclick="setTone('Deep dramatic voice',this)">Dramatic</div>
+                        <div class="tone-btn" onclick="setTone('Energetic and upbeat',this)">Energetic</div>
+                    </div>
+                    <input type="text" id="toneInp" class="custom-input" value="Clear professional tone" placeholder="Describe your desired tone...">
+                </div>
+                <button class="generate-btn" id="genBtn" onclick="generate()">
+                    <div class="spinner"></div>
+                    <span id="genTxt"><i class="fas fa-wand-magic-sparkles"></i> Generate Speech</span>
+                </button>
+            </div>
+        </div>
     </div>
-
-    <div class="usage-box">
-        <div class="usage-title">
-            <span>Your Plan</span>
-            <span class="plan-badge">AGENCY PRO</span>
+    <section class="history-section">
+        <div class="history-header">
+            <h2 class="section-title">Recent Generations</h2>
+            <button class="clear-btn" onclick="clearHistory()"><i class="fas fa-trash-alt"></i> Clear All</button>
         </div>
-
-        <div class="progress-item">
-            <div class="progress-label"><span>AI Credits</span> <span>15.4k / 20k</span></div>
-            <div class="progress-track"><div class="progress-fill fill-purple"></div></div>
-        </div>
-
-        <div class="progress-item">
-            <div class="progress-label"><span>Storage</span> <span>42GB / 100GB</span></div>
-            <div class="progress-track"><div class="progress-fill fill-pink"></div></div>
-        </div>
-
-        <button class="upgrade-btn">
-            <i class="fa-solid fa-bolt"></i>
-            Upgrade Plan
-        </button>
-    </div>
+        <div class="history-grid" id="histList"></div>
+    </section>
 </div>
-
-<div class="main-content">
-
-    <div class="header-section">
-        <div class="welcome">
-            <h1>Salut, Alex! 👋</h1>
-            <p>Ce creăm astăzi? Toate uneltele tale sunt gata de acțiune.</p>
-        </div>
-        <div class="profile-pill">
-            <div class="avatar">A</div>
-            <span style="font-size:0.95rem; font-weight:600;">Alexandru</span>
-            <i class="fa-solid fa-chevron-down" style="font-size:0.75rem; color:#666;"></i>
-        </div>
+<div class="player" id="player">
+    <button class="play-circle" id="playBtn"><i class="fas fa-play"></i></button>
+    <div class="wave-container">
+        <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+        <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+        <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
     </div>
-
-    <!-- CORE TOOLS -->
-    <div class="section-title">
-        <i class="fa-solid fa-stars" style="color:#f59e0b;"></i>
-        Studio Tools
-    </div>
-    <div class="apps-grid">
-
-        <a href="apps/VoiceStudio/index.html" target="_blank" class="app-card">
-            <div class="badge badge-pro">PRO</div>
-            <div class="app-preview preview-voice">
-                <i class="fa-solid fa-microphone-lines"></i>
-            </div>
-            <div class="app-info">
-                <div class="app-title">Voice Pro Studio</div>
-                <div class="app-desc">Generează voci umane ultra-realiste cu control emoțional complet. Suportă 50+ limbi și accent-uri.</div>
-                <div class="app-footer">
-                    <div class="app-meta">
-                        <div class="meta-item"><i class="fa-solid fa-fire"></i> Popular</div>
-                        <div class="meta-item"><i class="fa-solid fa-clock"></i> 2 min</div>
-                    </div>
-                    <div class="launch-btn">Open <i class="fa-solid fa-arrow-right"></i></div>
-                </div>
-            </div>
-        </a>
-
-        <a href="apps/TestVideoCut/index.html" target="_blank" class="app-card">
-            <div class="badge badge-hot">HOT</div>
-            <div class="app-preview preview-video">
-                <i class="fa-solid fa-video"></i>
-            </div>
-            <div class="app-info">
-                <div class="app-title">Video Jump Cutter</div>
-                <div class="app-desc">Efect viral - taie automat pauzele din video. Perfect pentru YouTube Shorts și TikTok.</div>
-                <div class="app-footer">
-                    <div class="app-meta">
-                        <div class="meta-item"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-Powered</div>
-                        <div class="meta-item"><i class="fa-solid fa-clock"></i> 5 min</div>
-                    </div>
-                    <div class="launch-btn">Open <i class="fa-solid fa-arrow-right"></i></div>
-                </div>
-            </div>
-        </a>
-
-        <a href="apps/AudioCut/index.html" target="_blank" class="app-card">
-            <div class="app-preview preview-audio">
-                <i class="fa-solid fa-scissors"></i>
-            </div>
-            <div class="app-info">
-                <div class="app-title">Audio Slicer Pro</div>
-                <div class="app-desc">Taie liniștea și respirațiile automat. Ideal pentru podcast-uri și audiobook-uri.</div>
-                <div class="app-footer">
-                    <div class="app-meta">
-                        <div class="meta-item"><i class="fa-solid fa-bolt"></i> Fast</div>
-                        <div class="meta-item"><i class="fa-solid fa-clock"></i> 1 min</div>
-                    </div>
-                    <div class="launch-btn">Open <i class="fa-solid fa-arrow-right"></i></div>
-                </div>
-            </div>
-        </a>
-
-        <a href="apps/YoutubePro/index.html" target="_blank" class="app-card">
-            <div class="app-preview">
-                <img src="assets/youtube.jpg" alt="Universal Downloader">
-            </div>
-            <div class="app-info">
-                <div class="app-title">Universal Downloader</div>
-                <div class="app-desc">Descarcă de pe YouTube, TikTok, Instagram, Facebook. Cu transcript AI și traducere.</div>
-                <div class="app-footer">
-                    <div class="app-meta">
-                        <div class="meta-item"><i class="fa-solid fa-globe"></i> Multi-platform</div>
-                        <div class="meta-item"><i class="fa-solid fa-clock"></i> Instant</div>
-                    </div>
-                    <div class="launch-btn">Open <i class="fa-solid fa-arrow-right"></i></div>
-                </div>
-            </div>
-        </a>
-
-    </div>
-
-    <!-- VIRAL CONTENT CREATORS -->
-    <div class="section-title">
-        <i class="fa-solid fa-chart-line" style="color:#ec4899;"></i>
-        Viral Content Factory
-    </div>
-    <div class="apps-grid">
-
-        <a href="apps/TextStory/index.html" target="_blank" class="app-card">
-            <div class="badge badge-new">NEW</div>
-            <div class="app-preview">
-                <img src="assets/text.jpg" alt="Text Story Creator">
-            </div>
-            <div class="app-info">
-                <div class="app-title">Text Story Creator</div>
-                <div class="app-desc">Creează conversații fake tip iMessage, WhatsApp, Reddit. Perfect pentru storytelling viral.</div>
-                <div class="app-footer">
-                    <div class="app-meta">
-                        <div class="meta-item"><i class="fa-solid fa-fire"></i> Trending</div>
-                        <div class="meta-item"><i class="fa-solid fa-clock"></i> 3 min</div>
-                    </div>
-                    <div class="launch-btn">Open <i class="fa-solid fa-arrow-right"></i></div>
-                </div>
-            </div>
-        </a>
-
-        <a href="apps/VideoCommentary/index.html" target="_blank" class="app-card">
-            <div class="badge badge-new">NEW</div>
-            <div class="app-preview">
-                <img src="assets/comentariu.png" alt="Video Commentary">
-            </div>
-            <div class="app-info">
-                <div class="app-title">Video Commentary</div>
-                <div class="app-desc">Adaugă voiceover AI peste video-uri. Creează reacții și comentarii automat.</div>
-                <div class="app-footer">
-                    <div class="app-meta">
-                        <div class="meta-item"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Voice</div>
-                        <div class="meta-item"><i class="fa-solid fa-clock"></i> 4 min</div>
-                    </div>
-                    <div class="launch-btn">Open <i class="fa-solid fa-arrow-right"></i></div>
-                </div>
-            </div>
-        </a>
-
-        <a href="apps/RedditStory/index.html" target="_blank" class="app-card">
-            <div class="badge badge-new">NEW</div>
-            <div class="app-preview">
-                <img src="assets/reddit.webp" alt="Reddit Story Generator">
-            </div>
-            <div class="app-info">
-                <div class="app-title">Reddit Story Generator</div>
-                <div class="app-desc">Transformă thread-uri Reddit în video-uri cu voce AI. Gameplay background automat.</div>
-                <div class="app-footer">
-                    <div class="app-meta">
-                        <div class="meta-item"><i class="fa-solid fa-robot"></i> Full AI</div>
-                        <div class="meta-item"><i class="fa-solid fa-clock"></i> 10 min</div>
-                    </div>
-                    <div class="launch-btn">Open <i class="fa-solid fa-arrow-right"></i></div>
-                </div>
-            </div>
-        </a>
-
-    </div>
-
+    <a href="#" id="dlLink" class="dl-link" download><i class="fas fa-download"></i> Download</a>
+    <audio id="audio" style="display:none"></audio>
 </div>
+<script>
+    // ✅ Calea corectă pentru API
+    const SERVER = '/apps/voicestudio/api/generate';
 
+    const txt = document.getElementById('txt');
+    const spdSlider = document.getElementById('spdSlider');
+    const audio = document.getElementById('audio');
+    const player = document.getElementById('player');
+    const playBtn = document.getElementById('playBtn');
+
+    // Load saved text
+    txt.value = localStorage.getItem('vp_text') || '';
+    updateCount();
+
+    txt.addEventListener('input', () => {
+        updateCount();
+        localStorage.setItem('vp_text', txt.value);
+    });
+
+    spdSlider.oninput = (e) => {
+        const v = parseFloat(e.target.value);
+        document.getElementById('spdVal').textContent = v.toFixed(2) + 'x';
+        e.target.style.setProperty('--value', (v - 0.6) / (1.4 - 0.6) * 100 + '%');
+    };
+    spdSlider.dispatchEvent(new Event('input'));
+
+    function updateCount() {
+        const len = txt.value.length;
+        document.getElementById('charCnt').textContent = len + ' / 5000';
+        document.getElementById('charCnt').style.color = len > 5000 ? '#ef4444' : 'var(--accent)';
+    }
+
+    function updateVoice() {
+        const s = document.getElementById('vSel');
+        const o = s.options[s.selectedIndex];
+        document.getElementById('vName').textContent = o.text;
+        document.getElementById('vDesc').textContent = o.dataset.desc;
+        document.getElementById('vAvatar').textContent = o.text[0];
+    }
+
+    function setTone(val, el) {
+        document.getElementById('toneInp').value = val;
+        document.querySelectorAll('.tone-btn').forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
+    }
+
+    function clearText() {
+        if (confirm('Clear all text?')) {
+            txt.value = '';
+            updateCount();
+            localStorage.removeItem('vp_text');
+        }
+    }
+
+    async function pasteText() {
+        try {
+            const text = await navigator.clipboard.readText();
+            txt.value = text;
+            updateCount();
+        } catch (e) {
+            alert('Paste failed. Use Ctrl+V instead.');
+        }
+    }
+
+    function copyText() {
+        if (!txt.value) return alert('No text to copy!');
+        navigator.clipboard.writeText(txt.value);
+        showNotification('Text copied!');
+    }
+
+    function sampleText() {
+        return "Welcome to Voice Pro, the next generation text-to-speech platform. Experience natural, human-like voices with advanced AI technology. Transform your content into engaging audio with just a few clicks.";
+    }
+
+    function showNotification(msg) {
+        const div = document.createElement('div');
+        div.textContent = msg;
+        div.style.cssText = 'position:fixed;top:100px;left:50%;transform:translateX(-50%);background:rgba(167,139,250,.95);color:#000;padding:16px 32px;border-radius:12px;font-weight:700;z-index:1000;animation:slideDown .3s ease';
+        document.body.appendChild(div);
+        setTimeout(() => div.remove(), 2000);
+    }
+
+    async function generate() {
+        const text = txt.value.trim();
+        if (!text) return alert("Please enter some text!");
+        if (text.length > 5000) return alert("Text too long! Max 5000 characters.");
+
+        const btn = document.getElementById('genBtn');
+        btn.classList.add('loading');
+        btn.disabled = true;
+        document.getElementById('genTxt').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+
+        try {
+            console.log('🔄 Sending request to:', SERVER);
+
+            const res = await fetch(SERVER, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text,
+                    voice: document.getElementById('vSel').value,
+                    speed: spdSlider.value,
+                    instructions: document.getElementById('toneInp').value
+                })
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+                throw new Error(errorData.error || `Server error: ${res.status}`);
+            }
+
+            const blob = await res.blob();
+            console.log('✅ Audio received:', blob.size, 'bytes');
+
+            const url = URL.createObjectURL(blob);
+
+            setupPlayer(url);
+            addHistory(text, document.getElementById('vName').textContent, url);
+            showNotification('✨ Speech generated!');
+        } catch (e) {
+            console.error('❌ Generation error:', e);
+            alert("Error: " + e.message);
+        } finally {
+            btn.classList.remove('loading');
+            btn.disabled = false;
+            document.getElementById('genTxt').innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Generate Speech';
+        }
+    }
+
+    function setupPlayer(url) {
+        audio.src = url;
+        document.getElementById('dlLink').href = url;
+        player.classList.add('active');
+        audio.play();
+        updatePlayIcon(true);
+    }
+
+    playBtn.onclick = () => {
+        if (audio.paused) {
+            audio.play();
+            updatePlayIcon(true);
+        } else {
+            audio.pause();
+            updatePlayIcon(false);
+        }
+    };
+
+    audio.onended = () => updatePlayIcon(false);
+
+    function updatePlayIcon(playing) {
+        playBtn.innerHTML = playing ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
+        player.classList.toggle('playing', playing);
+    }
+
+    function addHistory(text, voice, url) {
+        const hist = JSON.parse(localStorage.getItem('vp_hist') || '[]');
+        const preview = text.length > 80 ? text.substring(0, 80) + '...' : text;
+        hist.unshift({
+            text: preview,
+            voice,
+            time: new Date().toLocaleString('ro-RO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' }),
+            url,
+            id: Date.now()
+        });
+        if (hist.length > 15) hist.pop();
+        localStorage.setItem('vp_hist', JSON.stringify(hist));
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const hist = JSON.parse(localStorage.getItem('vp_hist') || '[]');
+        const list = document.getElementById('histList');
+
+        if (!hist.length) {
+            list.innerHTML = '<div class="empty-history"><i class="fas fa-clock-rotate-left"></i><p>No generations yet. Create your first one above!</p></div>';
+            return;
+        }
+
+        list.innerHTML = hist.map(h => `
+<div class="history-item">
+<div class="history-text">${h.text}</div>
+<div class="history-meta">
+<span class="meta-badge">${h.voice}</span>
+<span>${h.time}</span>
+</div>
+<button class="play-history" onclick="playHistory('${h.url}')"><i class="fas fa-play"></i></button>
+</div>
+`).join('');
+    }
+
+    function playHistory(url){
+        setupPlayer(url);
+    }
+
+    function clearHistory(){
+        if(confirm('Clear all history?')){
+            localStorage.removeItem('vp_hist');
+            renderHistory();
+            showNotification('History cleared!');
+        }
+    }
+
+    renderHistory();
+
+    const style=document.createElement('style');
+    style.textContent='@keyframes slideDown{from{opacity:0;transform:translateX(-50%) translateY(-20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}';
+    document.head.appendChild(style);
+</script>
 </body>
 </html>

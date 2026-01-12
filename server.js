@@ -7,7 +7,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // --- Configurări generale ---
-const APP_PATH = '/apps/VoiceStudio';
+const APP_PATH = '/apps/voicestudio';
 const PUBLIC_PATH = path.join(__dirname, 'apps', 'VoiceStudio', 'public');
 
 // --- RAPIDAPI ---
