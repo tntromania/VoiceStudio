@@ -9,57 +9,61 @@ const PORT = process.env.PORT || 3000;
 // Configurare Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public')); // Servește fișierele din folderul public
+app.use(express.static('public')); 
 
 // --- CONFIGURARE API KEY ---
-// Asta o ia direct din Coolify
-const RAPID_API_KEY = process.env.RAPID_API_KEY; 
-const RAPID_API_HOST = 'open-ai-text-to-speech1.p.rapidapi.com';
+// Se preia din Environment Variables din Coolify
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 // --- ENDPOINT API ---
 app.post('/api/generate', async (req, res) => {
-    const { text, voice, instructions, speed } = req.body;
+    // OpenAI Audio API suportă doar: model, input, voice, speed.
+    // "instructions" nu este suportat de endpoint-ul audio, așa că îl ignorăm.
+    const { text, voice, speed } = req.body;
 
-    if (!RAPID_API_KEY) {
-        console.error("LIPSA API KEY!");
-        return res.status(500).json({ error: 'Server configuration error: Missing API Key' });
+    if (!OPENAI_API_KEY) {
+        console.error("LIPSA API KEY! Verifica variabilele in Coolify.");
+        return res.status(500).json({ error: 'Server Error: Missing API Key' });
     }
 
-    console.log(`[TTS HD] Generare... Voce: ${voice}`);
+    console.log(`[OpenAI TTS] Generare... Voce: ${voice || 'alloy'}, Viteza: ${speed}`);
 
     if (!text) return res.status(400).json({ error: 'Text lipsă.' });
 
     try {
-        const response = await axios.post(`https://${RAPID_API_HOST}/`, {
-            model: "tts-1-hd",
-            input: text,
-            voice: voice || "alloy",
-            instructions: instructions || "Speak clearly.",
-            speed: parseFloat(speed) || 1.0
-        }, {
-            headers: {
-                'Content-Type': 'application/json',
-                'x-rapidapi-host': RAPID_API_HOST,
-                'x-rapidapi-key': RAPID_API_KEY
-            },
-            responseType: 'arraybuffer'
-        });
+        const response = await axios.post(
+            'https://api.openai.com/v1/audio/speech', 
+            {
+                model: "tts-1-hd", // Modelul High Definition
+                input: text,
+                voice: voice || "alloy",
+                speed: parseFloat(speed) || 1.0,
+                response_format: "mp3"
+            }, 
+            {
+                headers: {
+                    'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                responseType: 'arraybuffer' // Critic pentru fișiere audio
+            }
+        );
 
+        // Trimitem buffer-ul audio direct la frontend
         res.setHeader('Content-Type', 'audio/mpeg');
         res.send(response.data);
 
     } catch (error) {
-        console.error("Eroare API:", error.message);
-        // Dacă eroarea vine de la RapidAPI, o afișăm
+        console.error("Eroare OpenAI:", error.message);
         if (error.response) {
-             console.error(error.response.data.toString());
+            // Afișăm eroarea exactă de la OpenAI în consolă pentru debugging
+            console.error("Detalii eroare:", error.response.data.toString());
         }
         res.status(500).json({ error: 'Eroare la generarea vocii.' });
     }
 });
 
 // --- RUTE FRONTEND ---
-// Orice alt request duce la index.html
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
