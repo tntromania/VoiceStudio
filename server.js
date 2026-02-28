@@ -11,21 +11,22 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Preluam datele si stergem spatiile goale invizibile (daca exista de la copy-paste)
+// Preluam datele si stergem mecanic absolut orice spatiu invizibil din fata sau din spate
 const AZURE_KEY = process.env.AZURE_API_KEY ? process.env.AZURE_API_KEY.trim() : null;
-const AZURE_REGION = process.env.AZURE_REGION ? process.env.AZURE_REGION.trim() : 'westeurope';
+const AZURE_REGION = process.env.AZURE_REGION ? process.env.AZURE_REGION.trim() : 'eastus';
 
 app.post('/api/generate', async (req, res) => {
     const { text, voiceId } = req.body;
 
     if (!AZURE_KEY || !AZURE_REGION) {
-        return res.status(500).json({ error: 'Lipsește API Key sau Regiunea Azure din Coolify.' });
+        return res.status(500).json({ error: 'Lipsește API Key sau Regiunea Azure din variabile.' });
     }
     if (!text) return res.status(400).json({ error: 'Introdu textul.' });
 
     // Setam vocea. Default punem vocea virala Emil
     const selectedVoice = voiceId || 'ro-RO-EmilNeural';
 
+    // Formatul SSML acceptat de Azure
     const ssml = `
         <speak version='1.0' xml:lang='ro-RO'>
             <voice xml:lang='ro-RO' name='${selectedVoice}'>
@@ -35,25 +36,13 @@ app.post('/api/generate', async (req, res) => {
     `;
 
     try {
-        // PASUL 1: Cerem Token-ul de autorizare pentru cheile noi tip Foundry
-        const tokenResponse = await axios.post(
-            `https://${AZURE_REGION}.api.cognitive.microsoft.com/sts/v1.0/issueToken`,
-            null,
-            {
-                headers: {
-                    'Ocp-Apim-Subscription-Key': AZURE_KEY
-                }
-            }
-        );
-        const accessToken = tokenResponse.data;
-
-        // PASUL 2: Generam audio-ul folosind Token-ul
+        // Comunicare DIRECTA (fara token) - Metoda obligatorie pentru noile chei Foundry
         const response = await axios.post(
             `https://${AZURE_REGION}.tts.speech.microsoft.com/cognitiveservices/v1`,
             ssml,
             {
                 headers: {
-                    'Authorization': `Bearer ${accessToken}`, // Folosim Bearer Token in loc de cheie directa
+                    'Ocp-Apim-Subscription-Key': AZURE_KEY,
                     'Content-Type': 'application/ssml+xml',
                     'X-Microsoft-OutputFormat': 'audio-24khz-160kbitrate-mono-mp3',
                     'User-Agent': 'Viralio'
@@ -62,14 +51,22 @@ app.post('/api/generate', async (req, res) => {
             }
         );
 
+        // Trimitem melodia MP3 spre front-end
         res.setHeader('Content-Type', 'audio/mpeg');
         res.send(response.data);
 
     } catch (error) {
-        console.error("Eroare Azure:", error.message);
-        if (error.response && error.response.status === 401) {
-            return res.status(401).json({ error: 'Eroare Azure 401: Cheie respinsă. Așteaptă 10 minute pentru propagare.' });
+        // Logam in consola de la Coolify exact motivul de la Microsoft, ca sa nu mai bajbaim
+        console.error("❌ Eroare Azure HTTP Code:", error.response?.status);
+        if (error.response && error.response.data) {
+            const errText = Buffer.from(error.response.data).toString('utf8');
+            console.error("❌ Detalii refuz Azure:", errText);
         }
+        
+        if (error.response?.status === 401) {
+             return res.status(401).json({ error: 'Eroare 401: Cheia încă nu s-a propagat (durează ~10 min) sau este invalidă.' });
+        }
+        
         res.status(500).json({ error: 'Eroare la generarea vocii.' });
     }
 });
@@ -80,6 +77,6 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`🚀 Azure Voice ruleaza pe portul ${PORT}`);
-    console.log(`🔑 Status Cheie: ${AZURE_KEY ? 'Încarcată' : 'LIPSEȘTE'}`);
-    console.log(`🌍 Regiune: ${AZURE_REGION}`);
+    console.log(`🔑 Key detectat: ${AZURE_KEY ? (AZURE_KEY.length + ' caractere (OK)') : 'LIPSESTE'}`);
+    console.log(`🌍 Regiune setata: ${AZURE_REGION}`);
 });
