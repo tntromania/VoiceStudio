@@ -11,19 +11,36 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Preluam datele si stergem mecanic absolut orice spatiu invizibil
+// Preluam cheile
 const AZURE_KEY = process.env.AZURE_API_KEY ? process.env.AZURE_API_KEY.trim() : null;
 const AZURE_REGION = process.env.AZURE_REGION ? process.env.AZURE_REGION.trim() : 'eastus';
+
+// Functie secreta: Cere un Token de Acces de la Microsoft inainte de generare
+async function getAccessToken() {
+    try {
+        const response = await axios.post(
+            `https://${AZURE_REGION}.api.cognitive.microsoft.com/sts/v1.0/issueToken`,
+            null,
+            {
+                headers: {
+                    'Ocp-Apim-Subscription-Key': AZURE_KEY
+                }
+            }
+        );
+        return response.data; // Asta e Token-ul lung de care are nevoie serverul de voce
+    } catch (error) {
+        throw new Error("Nu s-a putut obține Token-ul Azure. Verifică API Key-ul.");
+    }
+}
 
 app.post('/api/generate', async (req, res) => {
     const { text, voiceId } = req.body;
 
-    if (!AZURE_KEY || !AZURE_REGION) {
-        return res.status(500).json({ error: 'Lipsește API Key sau Regiunea Azure din variabile.' });
+    if (!AZURE_KEY) {
+        return res.status(500).json({ error: 'Lipsește API Key Azure.' });
     }
     if (!text) return res.status(400).json({ error: 'Introdu textul.' });
 
-    // Setam vocea. Default punem vocea virala Emil
     const selectedVoice = voiceId || 'ro-RO-EmilNeural';
 
     // Formatul SSML acceptat de Azure
@@ -36,19 +53,22 @@ app.post('/api/generate', async (req, res) => {
     `;
 
     try {
+        // PASUL 1: Obtinem Biletul de Voie (Token)
+        const token = await getAccessToken();
+
+        // PASUL 2: Generam sunetul folosind Token-ul (NU cheia directa)
         const response = await axios.post(
             `https://${AZURE_REGION}.tts.speech.microsoft.com/cognitiveservices/v1`,
             ssml,
             {
                 headers: {
-                    'Ocp-Apim-Subscription-Key': AZURE_KEY,
-                    // SOLUTIA MAGICA PENTRU CHEILE FOUNDRY:
-                    'Ocp-Apim-Subscription-Region': AZURE_REGION, 
+                    // Aici trimitem Tokenul obtinut, NU AZURE_KEY!
+                    'Authorization': `Bearer ${token}`, 
                     'Content-Type': 'application/ssml+xml',
                     'X-Microsoft-OutputFormat': 'audio-24khz-160kbitrate-mono-mp3',
                     'User-Agent': 'Viralio'
                 },
-                responseType: 'arraybuffer'
+                responseType: 'arraybuffer' // Extrem de important pentru fisiere audio
             }
         );
 
@@ -57,17 +77,11 @@ app.post('/api/generate', async (req, res) => {
         res.send(response.data);
 
     } catch (error) {
-        console.error("❌ Eroare Azure HTTP Code:", error.response?.status);
+        console.error("❌ Eroare Generare Azure:", error.response?.status);
         if (error.response && error.response.data) {
-            const errText = Buffer.from(error.response.data).toString('utf8');
-            console.error("❌ Detalii refuz Azure:", errText);
+            console.error("❌ Detalii Azure:", Buffer.from(error.response.data).toString('utf8'));
         }
-        
-        if (error.response?.status === 401) {
-             return res.status(401).json({ error: 'Eroare 401: Acces Respins. Verifică log-urile din Coolify.' });
-        }
-        
-        res.status(500).json({ error: 'Eroare la generarea vocii.' });
+        res.status(500).json({ error: 'Eroare la generarea vocii. Posibil ca abonamentul Azure sa nu fie activat.' });
     }
 });
 
@@ -77,6 +91,6 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`🚀 Azure Voice ruleaza pe portul ${PORT}`);
-    console.log(`🔑 Key detectat: ${AZURE_KEY ? (AZURE_KEY.length + ' caractere (OK)') : 'LIPSESTE'}`);
-    console.log(`🌍 Regiune setata: ${AZURE_REGION}`);
+    console.log(`🔑 Key detectat: ${AZURE_KEY ? 'OK' : 'LIPSESTE'}`);
+    console.log(`🌍 Regiune: ${AZURE_REGION}`);
 });
