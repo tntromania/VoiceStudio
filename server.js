@@ -1,8 +1,9 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios');
 const path = require('path');
+// Importam magicul SDK oficial gasit de tine
+const sdk = require("microsoft-cognitiveservices-speech-sdk");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,25 +12,21 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// CURĂȚARE EXTREMĂ: Ștergem orice spațiu și orice ghilimea pusă accidental în Coolify
-let AZURE_KEY = process.env.AZURE_API_KEY || '';
-AZURE_KEY = AZURE_KEY.replace(/['"]/g, '').trim(); 
+// Curatam cheile la fel ca inainte
+const AZURE_KEY = process.env.AZURE_API_KEY ? process.env.AZURE_API_KEY.trim() : null;
+const AZURE_REGION = process.env.AZURE_REGION ? process.env.AZURE_REGION.trim() : 'eastus';
 
-let AZURE_REGION = process.env.AZURE_REGION || 'eastus';
-AZURE_REGION = AZURE_REGION.replace(/['"]/g, '').trim();
-
-app.post('/api/generate', async (req, res) => {
+app.post('/api/generate', (req, res) => {
     const { text, voiceId } = req.body;
 
     if (!AZURE_KEY) {
-        return res.status(500).json({ error: 'Lipsește API Key Azure din variabile.' });
+        return res.status(500).json({ error: 'Lipsește API Key Azure.' });
     }
     if (!text) return res.status(400).json({ error: 'Introdu textul.' });
 
-    // Setam vocea
     const selectedVoice = voiceId || 'ro-RO-EmilNeural';
 
-    // SSML CORECTAT 100% cu xmlns cerut de Microsoft (aici era buba tacuta)
+    // SSML-ul pentru pronuntie perfecta in limba romana
     const ssml = `
         <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='ro-RO'>
             <voice name='${selectedVoice}'>
@@ -38,53 +35,48 @@ app.post('/api/generate', async (req, res) => {
         </speak>
     `.trim();
 
-    try {
-        console.log(`[Azure] Trimitere request spre: ${selectedVoice} in regiunea ${AZURE_REGION}`);
+    console.log(`[SDK] Incepem generarea pentru: ${selectedVoice}...`);
 
-        const response = await axios.post(
-            `https://${AZURE_REGION}.tts.speech.microsoft.com/cognitiveservices/v1`,
+    try {
+        // Configurarea SDK-ului cu cheia ta buclucasa de 84 de caractere
+        const speechConfig = sdk.SpeechConfig.fromSubscription(AZURE_KEY, AZURE_REGION);
+        
+        // Vrem format MP3 de inalta claritate
+        speechConfig.speechSynthesisOutputFormat = sdk.SpeechSynthesisOutputFormat.Audio24Khz160KBitRateMonoMp3;
+
+        // Punem "null" la audioConfig ca sa prindem fisierul in memorie, nu sa-l cantam pe server
+        const synthesizer = new sdk.SpeechSynthesizer(speechConfig, null);
+
+        // Functia asincrona din SDK
+        synthesizer.speakSsmlAsync(
             ssml,
-            {
-                headers: {
-                    'Ocp-Apim-Subscription-Key': AZURE_KEY,
-                    'Content-Type': 'application/ssml+xml',
-                    'X-Microsoft-OutputFormat': 'audio-24khz-160kbitrate-mono-mp3',
-                    'User-Agent': 'Viralio'
-                },
-                responseType: 'arraybuffer' // Magic word pentru a primi mp3
+            result => {
+                // E FOARTE IMPORTANT sa inchidem sintetizatorul, altfel consuma toata memoria serverului
+                synthesizer.close();
+
+                if (result.reason === sdk.ResultReason.SynthesizingAudioCompleted) {
+                    console.log("[SDK] Magic! Fisier generat cu succes. Trimit catre browser.");
+                    
+                    // Transformam rezultatul din SDK intr-un fisier trimis pe HTTP
+                    const audioBuffer = Buffer.from(result.audioData);
+                    res.setHeader('Content-Type', 'audio/mpeg');
+                    res.send(audioBuffer);
+                    
+                } else {
+                    console.error("[SDK] Eroare la sintetizare: " + result.errorDetails);
+                    res.status(500).json({ error: 'Eroare la generare din Azure SDK.', details: result.errorDetails });
+                }
+            },
+            error => {
+                console.error("[SDK] Eroare interna fatala:", error);
+                synthesizer.close();
+                res.status(500).json({ error: 'A crapat conexiunea cu Azure.' });
             }
         );
 
-        console.log(`[Azure] Succes! Fisier generat.`);
-        
-        // Trimitem melodia MP3 spre front-end
-        res.setHeader('Content-Type', 'audio/mpeg');
-        res.send(response.data);
-
-    } catch (error) {
-        // SISTEMUL NOU DE EROARE (ne spune fix ce-l doare pe Microsoft)
-        console.error("❌ Eroare in Catch:", error.message);
-        
-        if (error.response) {
-            console.error("❌ Status Microsoft:", error.response.status);
-            
-            // Transformam buffer-ul primit de la ei in text citibil ca sa aflam cauza
-            let errText = "Eroare necunoscuta.";
-            if (Buffer.isBuffer(error.response.data)) {
-                errText = error.response.data.toString('utf8');
-            } else if (typeof error.response.data === 'string') {
-                errText = error.response.data;
-            } else {
-                errText = JSON.stringify(error.response.data);
-            }
-            console.error("❌ Mesaj direct de la Azure:", errText);
-            
-            if (error.response.status === 401) {
-                return res.status(401).json({ error: 'Eroare 401: Cheie respinsă. Asigură-te că valoarea din Coolify e pusă corect, fără spații.' });
-            }
-        }
-        
-        res.status(500).json({ error: 'Eroare la generarea vocii.' });
+    } catch (err) {
+        console.error("Eroare Catch bloc:", err);
+        res.status(500).json({ error: 'Eroare la initializarea SDK-ului.' });
     }
 });
 
@@ -93,7 +85,7 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 Azure Voice ruleaza pe portul ${PORT}`);
-    console.log(`🔑 Key detectat: ${AZURE_KEY.length} caractere`);
-    console.log(`🌍 Regiune setata: ${AZURE_REGION}`);
+    console.log(`🚀 Azure Voice SDK Edition ruleaza pe portul ${PORT}`);
+    console.log(`🔑 Key detectat: ${AZURE_KEY ? AZURE_KEY.length + ' caractere (Gata de treaba)' : 'LIPSESTE'}`);
+    console.log(`🌍 Regiune: ${AZURE_REGION}`);
 });
