@@ -1,18 +1,20 @@
-# Folosim o versiune light de Node
-FROM node:18-alpine
+# Folosim o versiune oficiala si usoara de Node.js
+FROM node:20-alpine
 
-# Setăm folderul de lucru
+# Setam directorul de lucru in interiorul containerului
 WORKDIR /app
 
-# Copiem definițiile și instalăm dependințele
+# Copiem fisierele de configurare
 COPY package*.json ./
+
+# Instalam doar dependentele de care avem nevoie (fara cele de dezvoltare)
 RUN npm install --production
 
-# Copiem tot codul aplicației
+# Copiem restul codului (server.js si folderul public)
 COPY . .
 
-# Expunem portul
+# Expunem portul pe care ruleaza serverul nostru
 EXPOSE 3000
 
-# Pornim serverul
-CMD ["node", "server.js"]
+# Comanda care porneste aplicatia
+CMD ["npm", "start"]

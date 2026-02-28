@@ -1,322 +1,430 @@
 <!DOCTYPE html>
-<html lang="ro">
+<html lang="ro" class="scroll-smooth">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Voice Pro | OpenAI HD</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Voice Engine AI | Viralio</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { viralio: { 50: '#eef2ff', 500: '#6366f1', 600: '#4f46e5', accent: '#ec4899' } }
+                }
+            }
+        }
+    </script>
     <style>
-        :root{--bg:#000;--card:#0d0d0d;--border:#1a1a1a;--accent:#a78bfa;--accent-dk:#7c3aed;--text:#fff;--muted:#94a3b8;--glow:rgba(167,139,250,.4);--success:#10b981}
-        *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-        body{font-family:Outfit,sans-serif;background:#000;color:var(--text);min-height:100vh;overflow-x:hidden;position:relative}
-        body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle at 20% 10%,rgba(167,139,250,.15) 0%,transparent 40%),radial-gradient(circle at 80% 80%,rgba(16,185,129,.1) 0%,transparent 40%);pointer-events:none;z-index:0}
-        body::after{content:'';position:fixed;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.5;z-index:100}
-        .grain{position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:1;opacity:.5}
-        .app{max-width:1600px;margin:0 auto;padding:60px 40px 140px;position:relative;z-index:2}
-        .header{text-align:center;margin-bottom:70px;position:relative}
-        .logo-main{font-size:3rem;font-weight:800;margin-bottom:12px;background:linear-gradient(135deg,var(--text) 0%,var(--accent) 50%,var(--success) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-2px;position:relative;display:inline-block}
-        .logo-main::before{content:'⚡';position:absolute;left:-50px;top:50%;transform:translateY(-50%);font-size:2.5rem;filter:drop-shadow(0 0 20px var(--glow))}
-        .tagline{color:var(--muted);font-size:1.15rem;font-weight:500;letter-spacing:2px;text-transform:uppercase}
-        .main-grid{display:grid;grid-template-columns:1.2fr 450px;gap:40px;margin-bottom:60px}
-        .editor-section{display:flex;flex-direction:column;gap:25px}
-        .card{background:rgba(13,13,13,.6);backdrop-filter:blur(40px);border:1px solid var(--border);border-radius:28px;padding:35px;position:relative;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5)}
-        .card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:25px}
-        .card-title{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--muted)}
-        .char-count{font-family:monospace;font-size:.85rem;color:var(--accent);background:rgba(167,139,250,.1);padding:6px 14px;border-radius:8px;font-weight:600}
-        textarea{width:100%;min-height:450px;background:transparent;border:none;color:var(--text);font-family:Outfit,sans-serif;font-size:1.4rem;line-height:2;resize:none;outline:0}
-        textarea::placeholder{color:#222;font-weight:300}
-        .quick-actions{display:flex;gap:12px;flex-wrap:wrap}
-        .quick-btn{padding:10px 18px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;font-size:.85rem;cursor:pointer;transition:.3s;font-weight:500;color:var(--muted);display:flex;align-items:center;gap:8px}
-        .quick-btn:hover{border-color:var(--accent);background:rgba(167,139,250,.08);color:var(--text);transform:translateY(-2px)}
-        .settings-panel{display:flex;flex-direction:column;gap:32px}
-        .setting-block h3{font-size:.8rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:18px;font-weight:700}
-        .voice-select{background:rgba(255,255,255,.02);border:2px solid var(--border);border-radius:20px;padding:22px;cursor:pointer;transition:.3s;display:flex;align-items:center;gap:16px;position:relative}
-        .voice-select:hover{border-color:var(--accent);background:rgba(167,139,250,.06);transform:translateY(-2px);box-shadow:0 8px 30px var(--glow)}
-        .voice-avatar{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--accent),var(--accent-dk));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.5rem;box-shadow:0 8px 24px var(--glow)}
-        .voice-details{flex:1}
-        .voice-name{font-weight:700;font-size:1.1rem;margin-bottom:6px}
-        .voice-desc{font-size:.88rem;color:var(--muted)}
-        select{position:absolute;inset:0;opacity:0;cursor:pointer}
-        .slider-wrap{margin-bottom:8px}
-        .slider-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
-        .slider-label{font-size:.92rem;font-weight:600;color:var(--text)}
-        .slider-val{font-family:monospace;font-size:.95rem;color:var(--accent);background:rgba(167,139,250,.12);padding:5px 12px;border-radius:8px;font-weight:700}
-        input[type=range]{width:100%;height:8px;background:rgba(255,255,255,.04);border-radius:4px;outline:0;-webkit-appearance:none;cursor:pointer;position:relative}
-        input[type=range]::-webkit-slider-track{background:linear-gradient(to right,var(--accent) 0%,var(--accent) var(--value,50%),rgba(255,255,255,.04) var(--value,50%))}
-        input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;background:var(--text);border-radius:50%;border:4px solid var(--accent);box-shadow:0 0 0 3px rgba(167,139,250,.2),0 6px 16px var(--glow);cursor:pointer;transition:.2s}
-        input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.15);box-shadow:0 0 0 5px rgba(167,139,250,.3),0 8px 20px var(--glow)}
-        .generate-btn{width:100%;padding:22px;background:linear-gradient(135deg,var(--accent) 0%,var(--accent-dk) 100%);color:#000;border:none;border-radius:18px;font-weight:800;font-size:1.12rem;cursor:pointer;transition:.3s;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 12px 36px var(--glow);position:relative;overflow:hidden;text-transform:uppercase;letter-spacing:1px}
-        .generate-btn:hover:not(:disabled){transform:translateY(-3px);box-shadow:0 16px 48px var(--glow)}
-        .generate-btn:disabled{opacity:.5;cursor:not-allowed}
-        .spinner{display:none;width:20px;height:20px;border:3px solid rgba(0,0,0,.3);border-top-color:#000;border-radius:50%;animation:spin .7s linear infinite}
-        .generate-btn.loading .spinner{display:block}
-        @keyframes spin{100%{transform:rotate(360deg)}}
-        .history-section{margin-top:60px}
-        .history-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px}
-        .section-title{font-size:1.8rem;font-weight:800;background:linear-gradient(135deg,var(--text),var(--muted));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-        .clear-btn{padding:10px 20px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:12px;color:#ef4444;font-size:.85rem;font-weight:600;cursor:pointer;transition:.3s}
-        .history-grid{display:grid;gap:14px}
-        .history-item{background:rgba(13,13,13,.4);border:1px solid var(--border);border-radius:18px;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;transition:.3s;position:relative;overflow:hidden}
-        .history-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);transform:scaleY(0);transition:.3s}
-        .history-item:hover{border-color:rgba(167,139,250,.4);background:rgba(167,139,250,.04)}
-        .history-item:hover::before{transform:scaleY(1)}
-        .history-text{flex:1;font-size:.95rem;color:var(--text);font-weight:500;margin-right:20px}
-        .history-meta{display:flex;gap:20px;align-items:center;font-size:.82rem;color:var(--muted)}
-        .meta-badge{background:rgba(167,139,250,.1);padding:6px 12px;border-radius:8px;font-weight:600;color:var(--accent)}
-        .play-history{width:40px;height:40px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.3s;color:var(--muted)}
-        .play-history:hover{background:var(--accent);border-color:var(--accent);color:#000;transform:scale(1.1)}
-        .player{position:fixed;bottom:0;left:0;right:0;height:100px;background:rgba(0,0,0,.98);backdrop-filter:blur(40px);border-top:1px solid var(--border);padding:0 60px;display:flex;align-items:center;gap:25px;transform:translateY(100%);transition:.5s cubic-bezier(.4,0,.2,1);z-index:200;box-shadow:0 -10px 50px rgba(0,0,0,.8)}
-        .player.active{transform:translateY(0)}
-        .play-circle{width:56px;height:56px;background:linear-gradient(135deg,var(--accent),var(--accent-dk));border:none;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.3s;box-shadow:0 8px 24px var(--glow);color:#000;font-size:1.3rem}
-        .dl-link{padding:12px 24px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:14px;color:var(--text);text-decoration:none;font-weight:700;font-size:.92rem;transition:.3s;display:flex;align-items:center;gap:10px;text-transform:uppercase;letter-spacing:.5px}
-        @media (max-width:1200px){.main-grid{grid-template-columns:1fr}.settings-panel{order:-1}}
-        @media (max-width:768px){.app{padding:30px 20px 140px}.header{margin-bottom:50px}.main-grid{gap:25px}.card{padding:25px}textarea{font-size:1.2rem;min-height:350px}.player{padding:0 20px;height:90px}.history-item{flex-direction:column;align-items:flex-start;gap:12px}}
+        body { background-color: #F8FAFC; overflow-x: hidden; color: #0f172a; }
+        .bg-gradient-viralio { background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%); }
+        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        /* Modal Login */
+        #login-modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); z-index: 99999; align-items: center; justify-content: center; opacity: 0; transition: 0.3s; }
+        #login-modal.show { display: flex; opacity: 1; }
+        .modal-content { background: #ffffff; border-radius: 28px; padding: 40px; text-align: center; max-width: 420px; width: 90%; transform: translateY(20px); transition: 0.4s; box-shadow: 0 40px 80px -20px rgba(0,0,0,0.2); }
+        #login-modal.show .modal-content { transform: translateY(0); }
+        
+        /* Player & EQ Animations */
+        .glass-player { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.5); }
+        .eq-bar { width: 4px; border-radius: 2px; background-color: #4f46e5; height: 4px; transition: height 0.1s; }
+        .playing .eq-bar { animation: eqBounce 0.8s ease-in-out infinite alternate; }
+        @keyframes eqBounce { 0% { height: 4px; } 100% { height: 24px; } }
+        
+        /* Custom Loader */
+        .spinner { border: 3px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: none; }
+        .is-loading .spinner { display: block; }
+        .is-loading .btn-text { display: none; }
     </style>
 </head>
-<body>
-<div class="grain"></div>
-<div class="app">
-    <header class="header">
-        <h1 class="logo-main">Voice Pro</h1>
-        <p class="tagline">OpenAI HD Speech Generation</p>
-    </header>
-    <div class="main-grid">
-        <div class="editor-section">
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title">Input Text</span>
-                    <span class="char-count" id="charCnt">0 / 4096</span>
+<body class="h-[100dvh] flex flex-col relative">
+
+<div class="absolute top-0 right-1/4 w-[500px] h-[500px] bg-pink-500/10 rounded-full blur-[100px] pointer-events-none z-0 mix-blend-multiply"></div>
+<div class="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none z-0 mix-blend-multiply"></div>
+
+<div class="z-50 flex w-full justify-center px-2 py-4 md:px-6 md:pt-4 pb-2">
+    <nav class="w-full rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-xl shadow-sm px-5 md:px-6 py-2.5 flex justify-between items-center relative z-10 max-w-screen-2xl">
+        <a class="flex items-center font-black text-xl tracking-tight text-slate-900" href="https://viralio.ro">
+            <div class="w-8 h-8 rounded-xl bg-gradient-viralio flex items-center justify-center text-white mr-2.5 shadow-md"><i class="fa-solid fa-bolt text-sm"></i></div>
+            Viralio <span class="hidden md:inline-block text-xs font-semibold text-slate-400 ml-2 border-l border-slate-200 pl-2 mt-1">Voice Engine AI</span>
+        </a>
+        
+        <div class="flex items-center justify-end space-x-3">
+            <button onclick="openLoginModal()" id="login-top-btn" class="px-5 py-2 bg-slate-900 text-white rounded-xl hover:bg-viralio-600 transition-all font-semibold shadow-md text-sm hidden sm:block">Conectează-te</button>
+            <button onclick="openLoginModal()" id="login-top-btn-mobile" class="sm:hidden px-3 py-1.5 bg-slate-900 text-white rounded-lg font-bold text-xs"><i class="fa-solid fa-user"></i></button>
+            
+            <div id="user-profile" class="hidden items-center bg-slate-50 border border-slate-200 py-1 pl-1 pr-1.5 rounded-full">
+                <img id="nav-avatar" src="" class="w-7 h-7 rounded-full border border-slate-200">
+                <div class="flex flex-col leading-none ml-2 mr-2 hidden md:flex">
+                    <span id="nav-name" class="text-[0.7rem] font-bold text-slate-900 mb-0.5"></span>
+                    <span class="text-[0.6rem] font-bold text-viralio-600"><span id="nav-credits">0</span> Credite</span>
                 </div>
-                <textarea id="txt" placeholder="Type or paste your text here..."></textarea>
-            </div>
-            <div class="card">
-                <div class="quick-actions">
-                    <button class="quick-btn" onclick="clearText()"><i class="fas fa-eraser"></i> Clear</button>
-                    <button class="quick-btn" onclick="pasteText()"><i class="fas fa-paste"></i> Paste</button>
-                    <button class="quick-btn" onclick="copyText()"><i class="fas fa-copy"></i> Copy</button>
-                    <button class="quick-btn" onclick="txt.value=sampleText();updateCount()"><i class="fas fa-flask"></i> Sample</button>
-                </div>
+                <button onclick="logout()" class="p-1.5 text-slate-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50 ml-1"><i class="fa-solid fa-power-off text-sm"></i></button>
             </div>
         </div>
-        <div class="settings-panel">
-            <div class="card">
-                <div class="setting-block">
-                    <h3>Voice Model</h3>
-                    <div class="voice-select">
-                        <div class="voice-avatar" id="vAvatar">A</div>
-                        <div class="voice-details">
-                            <div class="voice-name" id="vName">Alloy</div>
-                            <div class="voice-desc" id="vDesc">Neutral & Balanced</div>
-                        </div>
-                        <select id="vSel" onchange="updateVoice()">
-                            <option value="alloy" data-desc="Neutral & Balanced (General)">Alloy</option>
-                            <option value="echo" data-desc="Deep & Masculine (Warm)">Echo</option>
-                            <option value="fable" data-desc="British & Narrative (Expressive)">Fable</option>
-                            <option value="onyx" data-desc="Deep & Intense (Authoritative)">Onyx</option>
-                            <option value="nova" data-desc="Feminine & Warm (Calm)">Nova</option>
-                            <option value="shimmer" data-desc="Clear & Bright (Feminine)">Shimmer</option>
-                        </select>
-                        <i class="fas fa-chevron-right"></i>
-                    </div>
-                </div>
-                <div class="setting-block">
-                    <h3>Speech Speed</h3>
-                    <div class="slider-wrap">
-                        <div class="slider-top">
-                            <span class="slider-label">Playback Rate</span>
-                            <span class="slider-val" id="spdVal">1.00x</span>
-                        </div>
-                        <input type="range" id="spdSlider" min="0.5" max="2.0" step="0.05" value="1.0">
-                    </div>
-                </div>
-                <button class="generate-btn" id="genBtn" onclick="generate()">
-                    <div class="spinner"></div>
-                    <span id="genTxt"><i class="fas fa-wand-magic-sparkles"></i> Generate Speech</span>
-                </button>
-            </div>
+    </nav>
+</div>
+
+<div id="login-modal">
+    <div class="modal-content relative">
+        <button class="absolute top-4 right-5 text-slate-400 hover:text-slate-900" onclick="closeLoginModal()"><i class="fa-solid fa-xmark text-xl"></i></button>
+        <div class="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center text-3xl mx-auto mb-4 border border-indigo-100"><i class="fas fa-fingerprint"></i></div>
+        <h2 class="text-2xl font-extrabold mb-2 text-slate-900">Intră în cont</h2>
+        <p class="text-slate-500 text-sm mb-6">Conectează-te pentru a genera voci AI.</p>
+        <div class="flex justify-center bg-slate-50 py-3 rounded-2xl border border-slate-100">
+            <div id="g_id_onload" data-client_id="743541351685-br4h5r61n3ai28bbhm9blt34944rju8p.apps.googleusercontent.com" data-context="signin" data-ux_mode="popup" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
+            <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div>
         </div>
     </div>
-    <section class="history-section">
-        <div class="history-header">
-            <h2 class="section-title">Recent Generations</h2>
-            <button class="clear-btn" onclick="clearHistory()"><i class="fas fa-trash-alt"></i> Clear All</button>
+</div>
+
+<main class="flex-1 w-full max-w-screen-2xl mx-auto p-2 pb-32 md:pb-24 z-10 flex flex-col lg:flex-row gap-6">
+    
+    <div class="flex-1 bg-white rounded-3xl border border-slate-200 shadow-sm p-6 md:p-8 flex flex-col h-full min-h-[500px]">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                <i class="fa-solid fa-keyboard text-viralio-500"></i> Script Text
+            </h2>
+            <div class="bg-slate-50 border border-slate-200 text-slate-500 font-mono text-xs px-3 py-1.5 rounded-lg font-bold">
+                <span id="char-count" class="text-viralio-600">0</span> / 5000
+            </div>
         </div>
-        <div class="history-grid" id="histList"></div>
-    </section>
+        
+        <textarea id="text-input" class="flex-1 w-full bg-transparent border-none outline-none resize-none text-slate-800 text-lg md:text-xl font-medium leading-relaxed placeholder:text-slate-300" placeholder="Lipește aici textul tău. Rețeaua neurală va citi respectând semnele de punctuație și intonația naturală a limbii române..."></textarea>
+        
+        <div class="flex flex-wrap gap-2 mt-6 pt-4 border-t border-slate-100">
+            <button onclick="clearText()" class="px-4 py-2 bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-500 rounded-xl text-sm font-bold transition-colors border border-slate-200 hover:border-red-200 flex items-center gap-2">
+                <i class="fa-solid fa-eraser"></i> Curăță
+            </button>
+            <button onclick="pasteText()" class="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl text-sm font-bold transition-colors border border-slate-200 flex items-center gap-2">
+                <i class="fa-solid fa-paste"></i> Lipește
+            </button>
+            <button onclick="insertSample()" class="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl text-sm font-bold transition-colors border border-indigo-200 flex items-center gap-2 ml-auto">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Text de Test
+            </button>
+        </div>
+    </div>
+
+    <aside class="w-full lg:w-[450px] flex flex-col gap-6 shrink-0">
+        
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">1. Alege Actorul Vocal</h3>
+            
+            <div class="space-y-3 mb-8" id="voice-grid">
+                <div class="voice-card active cursor-pointer p-3 rounded-2xl border-2 border-viralio-500 bg-viralio-50/50 flex items-center gap-4 transition-all" onclick="selectVoice('ro-RO-EmilNeural', this)">
+                    <div class="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-lg shadow-sm">EM</div>
+                    <div class="flex-1">
+                        <p class="text-sm font-black text-slate-900 leading-tight mb-0.5">Emil <span class="bg-amber-100 text-amber-600 text-[0.55rem] px-1.5 py-0.5 rounded uppercase ml-1">Viral</span></p>
+                        <p class="text-[0.7rem] font-bold text-slate-500">Masculin • Povești & Facts</p>
+                    </div>
+                    <i class="fa-solid fa-circle-check text-viralio-500 text-xl check-icon"></i>
+                </div>
+                
+                <div class="voice-card cursor-pointer p-3 rounded-2xl border-2 border-slate-100 hover:border-slate-200 flex items-center gap-4 transition-all" onclick="selectVoice('ro-RO-AlinaNeural', this)">
+                    <div class="w-12 h-12 rounded-xl bg-pink-500 text-white flex items-center justify-center font-black text-lg shadow-sm">AL</div>
+                    <div class="flex-1">
+                        <p class="text-sm font-black text-slate-900 leading-tight mb-0.5">Alina</p>
+                        <p class="text-[0.7rem] font-bold text-slate-500">Feminin • Cald & Clar</p>
+                    </div>
+                    <i class="fa-solid fa-circle-check text-slate-200 text-xl check-icon hidden"></i>
+                </div>
+
+                <div class="voice-card cursor-pointer p-3 rounded-2xl border-2 border-slate-100 hover:border-slate-200 flex items-center gap-4 transition-all" onclick="selectVoice('en-US-AndrewMultilingualNeural', this)">
+                    <div class="w-12 h-12 rounded-xl bg-blue-500 text-white flex items-center justify-center font-black text-lg shadow-sm">AN</div>
+                    <div class="flex-1">
+                        <p class="text-sm font-black text-slate-900 leading-tight mb-0.5">Andrew <span class="bg-slate-100 text-slate-500 text-[0.55rem] px-1.5 py-0.5 rounded uppercase ml-1">EN</span></p>
+                        <p class="text-[0.7rem] font-bold text-slate-500">Masculin • Internațional</p>
+                    </div>
+                    <i class="fa-solid fa-circle-check text-slate-200 text-xl check-icon hidden"></i>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center mb-3">
+                <span class="text-sm font-bold text-slate-500">Cost Procesare:</span>
+                <span class="font-black text-amber-600 bg-amber-50 px-3 py-1 rounded-lg border border-amber-200 flex items-center gap-1.5"><i class="fa-solid fa-coins"></i> 1 Credit</span>
+            </div>
+            
+            <button id="generateBtn" onclick="generateSpeech()" class="w-full bg-slate-900 text-white py-4 rounded-xl font-black text-lg flex items-center justify-center gap-2 shadow-xl hover:bg-viralio-600 hover:-translate-y-1 transition-all">
+                <span class="btn-text flex items-center gap-2"><i class="fa-solid fa-microphone-lines text-viralio-400"></i> SINTETIZEAZĂ VOCEA</span>
+                <div class="spinner"></div>
+            </button>
+        </div>
+
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 flex-1 flex flex-col overflow-hidden">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Istoric Sesiune</h3>
+                <button onclick="clearHistory()" class="text-[0.65rem] font-bold text-red-400 hover:text-red-600 uppercase tracking-wider">Șterge</button>
+            </div>
+            <div id="history-container" class="flex-1 overflow-y-auto space-y-3 pr-2">
+                <div class="text-center text-slate-400 text-sm font-medium py-6" id="empty-history">
+                    <i class="fa-solid fa-clock-rotate-left text-2xl mb-2 opacity-50 block"></i>
+                    Nicio generare recentă.
+                </div>
+            </div>
+        </div>
+
+    </aside>
+</main>
+
+<div id="playerBar" class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-3xl glass-player rounded-3xl p-4 flex items-center gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.15)] translate-y-40 transition-transform duration-500 z-50">
+    <button id="mainPlayBtn" class="w-12 h-12 md:w-14 md:h-14 shrink-0 rounded-full bg-slate-900 text-white flex items-center justify-center text-lg md:text-xl shadow-lg hover:scale-105 transition-all">
+        <i class="fa-solid fa-play ml-1"></i>
+    </button>
+    
+    <div class="flex-1 overflow-hidden">
+        <div class="flex items-end justify-between mb-1.5 px-1">
+            <span class="text-xs md:text-sm font-black text-slate-900 truncate pr-4" id="nowPlayingText">Vocal Generation</span>
+            
+            <div class="flex items-end gap-1 h-6 shrink-0" id="eq-container">
+                <div class="eq-bar" style="animation-delay: 0.1s"></div>
+                <div class="eq-bar" style="animation-delay: 0.3s"></div>
+                <div class="eq-bar" style="animation-delay: 0.2s"></div>
+                <div class="eq-bar" style="animation-delay: 0.4s"></div>
+                <div class="eq-bar hidden md:block" style="animation-delay: 0.15s"></div>
+            </div>
+        </div>
+        
+        <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden cursor-pointer" id="progressContainer">
+            <div id="progressBar" class="h-full bg-gradient-to-r from-viralio-600 to-pink-500 w-0 pointer-events-none transition-all duration-75"></div>
+        </div>
+    </div>
+
+    <a id="downloadBtn" href="#" download="viralio_voice.mp3" class="w-12 h-12 shrink-0 rounded-full border-2 border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:text-viralio-600 hover:border-viralio-200 transition-all shadow-sm">
+        <i class="fa-solid fa-download"></i>
+    </a>
 </div>
-<div class="player" id="player">
-    <button class="play-circle" id="playBtn"><i class="fas fa-play"></i></button>
-    <a href="#" id="dlLink" class="dl-link" download><i class="fas fa-download"></i> Download MP3</a>
-    <audio id="audio" style="display:none"></audio>
-</div>
+
+<audio id="mainAudio" class="hidden"></audio>
+
 <script>
-    const SERVER='/api';
-    const txt=document.getElementById('txt');
-    const spdSlider=document.getElementById('spdSlider');
-    const audio=document.getElementById('audio');
-    const player=document.getElementById('player');
-    const playBtn=document.getElementById('playBtn');
+    // --- AUTH LOGIC ---
+    function setToken(token) { document.cookie = "viralio_token=" + token + "; domain=.viralio.ro; path=/; max-age=604800; Secure; SameSite=Lax"; }
+    function getToken() { const match = document.cookie.match(/(?:^|; )viralio_token=([^;]*)/); return match ? match[1] : null; }
+    function removeToken() { document.cookie = "viralio_token=; domain=.viralio.ro; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; }
 
-    txt.value=localStorage.getItem('vp_text')||'';
-    updateCount();
+    const loginModal = document.getElementById('login-modal');
+    function openLoginModal() { loginModal.classList.add('show'); }
+    function closeLoginModal() { loginModal.classList.remove('show'); }
 
-    txt.addEventListener('input',()=>{
-        updateCount();
-        localStorage.setItem('vp_text',txt.value);
+    window.handleCredentialResponse = async function(response) {
+        try {
+            const res = await fetch('https://downloader.viralio.ro/api/auth/google', { 
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential: response.credential }) 
+            });
+            const data = await res.json();
+            if(data.token) { setToken(data.token); closeLoginModal(); updateUI(data.user); } 
+            else { alert("Eroare autentificare"); }
+        } catch (e) { alert('Eroare conexiune cu serverul.'); }
+    }
+
+    function updateUI(user) {
+        document.getElementById('login-top-btn')?.setAttribute('style', 'display: none !important');
+        document.getElementById('login-top-btn-mobile')?.setAttribute('style', 'display: none !important');
+        const userNav = document.getElementById('user-profile');
+        if(userNav){ userNav.classList.remove('hidden'); userNav.style.display = 'flex'; }
+        document.getElementById('nav-name').innerText = user.name.split(' ')[0];
+        document.getElementById('nav-avatar').src = user.picture;
+        document.getElementById('nav-credits').innerText = user.credits;
+    }
+
+    function logout() { removeToken(); location.reload(); }
+
+    window.onload = async () => {
+        loadHistory();
+        const token = getToken();
+        if(token) {
+            try {
+                const res = await fetch('https://downloader.viralio.ro/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
+                if(res.ok) { const data = await res.json(); updateUI(data.user); } else { removeToken(); }
+            } catch (e) {}
+        }
+    };
+
+    // --- APP LOGIC ---
+    let selectedVoiceId = 'ro-RO-EmilNeural';
+    let selectedVoiceName = 'Emil';
+    const textInput = document.getElementById('text-input');
+    const charCount = document.getElementById('char-count');
+    const MAX_CHARS = 5000;
+
+    // Char Counter
+    textInput.addEventListener('input', () => {
+        let len = textInput.value.length;
+        if (len > MAX_CHARS) {
+            textInput.value = textInput.value.substring(0, MAX_CHARS);
+            len = MAX_CHARS;
+        }
+        charCount.innerText = len;
+        charCount.className = len > MAX_CHARS * 0.9 ? 'text-red-500' : 'text-viralio-600';
     });
 
-    spdSlider.oninput=(e)=>{
-        const v=parseFloat(e.target.value);
-        document.getElementById('spdVal').textContent=v.toFixed(2)+'x';
-        e.target.style.setProperty('--value',(v-0.5)/(2.0-0.5)*100+'%');
-    };
-    spdSlider.dispatchEvent(new Event('input'));
-
-    function updateCount(){
-        const len=txt.value.length;
-        document.getElementById('charCnt').textContent=len+' / 4096';
-        document.getElementById('charCnt').style.color=len>4096?'#ef4444':'var(--accent)';
+    // Editor Actions
+    function clearText() { textInput.value = ''; textInput.dispatchEvent(new Event('input')); }
+    async function pasteText() { 
+        try { textInput.value += await navigator.clipboard.readText(); textInput.dispatchEvent(new Event('input')); } 
+        catch(e) { alert("Nu pot accesa clipboard-ul."); }
+    }
+    function insertSample() {
+        textInput.value = "Salutare tuturor! Acesta este un test audio generat de inteligența artificială. Sună foarte natural, nu-i așa? Perfect pentru videoclipurile tale virale de pe TikTok sau YouTube Shorts.";
+        textInput.dispatchEvent(new Event('input'));
     }
 
-    function updateVoice(){
-        const s=document.getElementById('vSel');
-        const o=s.options[s.selectedIndex];
-        document.getElementById('vName').textContent=o.text;
-        document.getElementById('vDesc').textContent=o.dataset.desc;
-        document.getElementById('vAvatar').textContent=o.text[0];
+    // Voice Selection
+    function selectVoice(id, el) {
+        selectedVoiceId = id;
+        selectedVoiceName = el.querySelector('p').innerText.split(' ')[0]; // Extrage doar numele scurt
+        
+        document.querySelectorAll('.voice-card').forEach(c => {
+            c.classList.remove('active', 'border-viralio-500', 'bg-viralio-50/50');
+            c.classList.add('border-slate-100');
+            c.querySelector('.check-icon').classList.replace('text-viralio-500', 'text-slate-200');
+            c.querySelector('.check-icon').classList.add('hidden');
+        });
+        
+        el.classList.remove('border-slate-100');
+        el.classList.add('active', 'border-viralio-500', 'bg-viralio-50/50');
+        el.querySelector('.check-icon').classList.remove('hidden');
+        el.querySelector('.check-icon').classList.replace('text-slate-200', 'text-viralio-500');
     }
 
-    function clearText(){
-        if(confirm('Clear all text?')){
-            txt.value='';
-            updateCount();
-            localStorage.removeItem('vp_text');
-        }
-    }
+    // Generate Audio
+    async function generateSpeech() {
+        const token = getToken();
+        if(!token) { openLoginModal(); return; }
+        
+        const text = textInput.value.trim();
+        if(!text) return alert("Scrie un text pentru a genera vocea.");
 
-    async function pasteText(){
-        try{
-            const text=await navigator.clipboard.readText();
-            txt.value=text;
-            updateCount();
-        }catch(e){alert('Paste failed. Use Ctrl+V instead.')}
-    }
+        const btn = document.getElementById('generateBtn');
+        btn.classList.add('is-loading');
+        btn.disabled = true;
 
-    function copyText(){
-        if(!txt.value)return alert('No text to copy!');
-        navigator.clipboard.writeText(txt.value);
-    }
-
-    function sampleText(){
-        return "OpenAI's text-to-speech model is capable of generating human-like audio from text. The HD model produces high-quality audio suitable for content creation.";
-    }
-
-    async function generate(){
-        const text=txt.value.trim();
-        if(!text)return alert("Please enter some text!");
-        // OpenAI limita este 4096 chars per request
-        if(text.length>4096)return alert("Text too long! Max 4096 characters.");
-
-        const btn=document.getElementById('genBtn');
-        btn.classList.add('loading');
-        btn.disabled=true;
-        document.getElementById('genTxt').innerHTML='<i class="fas fa-spinner fa-spin"></i> Processing...';
-
-        try{
-            const res=await fetch(`${SERVER}/generate`,{
-                method:'POST',
-                headers:{'Content-Type':'application/json'},
-                body:JSON.stringify({
-                    text,
-                    voice:document.getElementById('vSel').value,
-                    speed:spdSlider.value
-                })
+        try {
+            const res = await fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ text, voiceId: selectedVoiceId })
             });
 
-            if(!res.ok)throw new Error("Generation failed. Check server logs.");
-            const blob=await res.blob();
-            const url=URL.createObjectURL(blob);
+            if (!res.ok) throw new Error("Eroare server.");
 
-            setupPlayer(url);
-            addHistory(text,document.getElementById('vName').textContent,url);
-        }catch(e){
-            alert("Error: "+e.message);
-        }finally{
-            btn.classList.remove('loading');
-            btn.disabled=false;
-            document.getElementById('genTxt').innerHTML='<i class="fas fa-wand-magic-sparkles"></i> Generate Speech';
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            
+            // Deduct pseudo-credit visually (Backend should handle actual deduction)
+            const credEl = document.getElementById('nav-credits');
+            if(credEl && parseInt(credEl.innerText) > 0) credEl.innerText = parseInt(credEl.innerText) - 1;
+
+            playAudio(url, text);
+            saveToHistory(text, selectedVoiceName, url);
+
+        } catch (err) {
+            alert("Eroare la generare. Verifică textul și reîncearcă.");
+        } finally {
+            btn.classList.remove('is-loading');
+            btn.disabled = false;
         }
     }
 
-    function setupPlayer(url){
-        audio.src=url;
-        document.getElementById('dlLink').href=url;
-        player.classList.add('active');
-        audio.play();
-        updatePlayIcon(true);
+    // --- PLAYER LOGIC ---
+    const audioEl = document.getElementById('mainAudio');
+    const playerBar = document.getElementById('playerBar');
+    const playBtnIcon = document.getElementById('mainPlayBtn').querySelector('i');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+
+    function playAudio(url, text) {
+        audioEl.src = url;
+        document.getElementById('downloadBtn').href = url;
+        document.getElementById('nowPlayingText').innerText = text.substring(0, 40) + "...";
+        playerBar.style.transform = 'translate(-50%, 0)'; // Slide up
+        audioEl.play();
     }
 
-    playBtn.onclick=()=>{
-        if(audio.paused){
-            audio.play();
-            updatePlayIcon(true);
-        }else{
-            audio.pause();
-            updatePlayIcon(false);
+    document.getElementById('mainPlayBtn').onclick = () => {
+        if(audioEl.paused) audioEl.play(); else audioEl.pause();
+    };
+
+    audioEl.onplay = () => {
+        playBtnIcon.className = "fa-solid fa-pause";
+        playerBar.classList.add('playing');
+    };
+    audioEl.onpause = () => {
+        playBtnIcon.className = "fa-solid fa-play ml-1";
+        playerBar.classList.remove('playing');
+    };
+    audioEl.onended = () => {
+        playBtnIcon.className = "fa-solid fa-play ml-1";
+        playerBar.classList.remove('playing');
+        progressBar.style.width = '0%';
+    };
+
+    audioEl.ontimeupdate = () => {
+        if(audioEl.duration) {
+            const pct = (audioEl.currentTime / audioEl.duration) * 100;
+            progressBar.style.width = pct + '%';
         }
     };
 
-    audio.onended=()=>updatePlayIcon(false);
+    progressContainer.onclick = (e) => {
+        const rect = progressContainer.getBoundingClientRect();
+        const pct = (e.clientX - rect.left) / rect.width;
+        audioEl.currentTime = pct * audioEl.duration;
+    };
 
-    function updatePlayIcon(playing){
-        playBtn.innerHTML=playing?'<i class="fas fa-pause"></i>':'<i class="fas fa-play"></i>';
+    // --- HISTORY LOGIC ---
+    function saveToHistory(text, voice, url) {
+        const hist = JSON.parse(localStorage.getItem('viralio_voice_hist') || '[]');
+        hist.unshift({ text: text.substring(0, 60), voice, url, time: new Date().toLocaleTimeString('ro-RO', {hour:'2-digit', minute:'2-digit'}) });
+        if(hist.length > 10) hist.pop();
+        localStorage.setItem('viralio_voice_hist', JSON.stringify(hist));
+        loadHistory();
     }
 
-    function addHistory(text,voice,url){
-        const hist=JSON.parse(localStorage.getItem('vp_hist')||'[]');
-        const preview=text.length>60?text.substring(0,60)+'...':text;
-        hist.unshift({
-            text:preview,
-            voice,
-            time:new Date().toLocaleString('ro-RO',{hour:'2-digit',minute:'2-digit'}),
-            url,
-            id:Date.now()
-        });
-        if(hist.length>10)hist.pop();
-        localStorage.setItem('vp_hist',JSON.stringify(hist));
-        renderHistory();
-    }
-
-    function renderHistory(){
-        const hist=JSON.parse(localStorage.getItem('vp_hist')||'[]');
-        const list=document.getElementById('histList');
-
-        if(!hist.length){
-            list.innerHTML='<div style="text-align:center;color:#444;padding:20px;">No history yet.</div>';
+    function loadHistory() {
+        const hist = JSON.parse(localStorage.getItem('viralio_voice_hist') || '[]');
+        const container = document.getElementById('history-container');
+        
+        if(hist.length === 0) {
+            document.getElementById('empty-history').style.display = 'block';
             return;
         }
-
-        list.innerHTML=hist.map(h=>`
-<div class="history-item">
-<div class="history-text">${h.text}</div>
-<div class="history-meta">
-<span class="meta-badge">${h.voice}</span>
-<span>${h.time}</span>
-</div>
-<button class="play-history" onclick="setupPlayer('${h.url}')"><i class="fas fa-play"></i></button>
-</div>
-`).join('');
+        
+        container.innerHTML = '';
+        hist.forEach(h => {
+            const item = document.createElement('div');
+            item.className = "bg-slate-50 hover:bg-slate-100 border border-slate-100 rounded-2xl p-3 flex justify-between items-center transition-colors group cursor-pointer";
+            item.onclick = () => playAudio(h.url, h.text);
+            item.innerHTML = `
+                <div class="overflow-hidden flex-1 pr-3">
+                    <p class="text-xs font-bold text-slate-700 truncate mb-1">${h.text}...</p>
+                    <div class="flex gap-2 text-[0.65rem] font-bold text-slate-400 uppercase tracking-wider">
+                        <span class="bg-white border border-slate-200 px-1.5 py-0.5 rounded text-viralio-600">${h.voice}</span>
+                        <span class="mt-0.5">${h.time}</span>
+                    </div>
+                </div>
+                <button class="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 flex items-center justify-center group-hover:bg-viralio-500 group-hover:text-white group-hover:border-viralio-500 transition-all shrink-0">
+                    <i class="fa-solid fa-play text-xs ml-0.5"></i>
+                </button>
+            `;
+            container.appendChild(item);
+        });
     }
 
-    function clearHistory(){
-        if(confirm('Clear history?')){
-            localStorage.removeItem('vp_hist');
-            renderHistory();
-        }
+    function clearHistory() {
+        localStorage.removeItem('viralio_voice_hist');
+        document.getElementById('history-container').innerHTML = `
+            <div class="text-center text-slate-400 text-sm font-medium py-6" id="empty-history">
+                <i class="fa-solid fa-clock-rotate-left text-2xl mb-2 opacity-50 block"></i>
+                Nicio generare recentă.
+            </div>`;
     }
-
-    renderHistory();
 </script>
 </body>
 </html>

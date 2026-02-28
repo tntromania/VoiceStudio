@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
@@ -6,68 +7,60 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configurare Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public')); 
+app.use(express.static('public'));
 
-// --- CONFIGURARE API KEY ---
-// Se preia din Environment Variables din Coolify
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+// Preluam din Coolify
+const AZURE_KEY = process.env.AZURE_API_KEY; 
+const AZURE_REGION = process.env.AZURE_REGION || 'westeurope'; // ex: northeurope, westeurope, eastus
 
-// --- ENDPOINT API ---
 app.post('/api/generate', async (req, res) => {
-    // OpenAI Audio API suportă doar: model, input, voice, speed.
-    // "instructions" nu este suportat de endpoint-ul audio, așa că îl ignorăm.
-    const { text, voice, speed } = req.body;
+    const { text, voiceId } = req.body;
 
-    if (!OPENAI_API_KEY) {
-        console.error("LIPSA API KEY! Verifica variabilele in Coolify.");
-        return res.status(500).json({ error: 'Server Error: Missing API Key' });
+    if (!AZURE_KEY || !AZURE_REGION) {
+        return res.status(500).json({ error: 'Lipsește API Key sau Regiunea Azure.' });
     }
+    if (!text) return res.status(400).json({ error: 'Introdu textul.' });
 
-    console.log(`[OpenAI TTS] Generare... Voce: ${voice || 'alloy'}, Viteza: ${speed}`);
+    // Setam vocea. Default punem vocea virala de baiat din Romania
+    const selectedVoice = voiceId || 'ro-RO-EmilNeural';
 
-    if (!text) return res.status(400).json({ error: 'Text lipsă.' });
+    // Microsoft foloseste SSML (Speech Synthesis Markup Language) pentru a controla vocea
+    const ssml = `
+        <speak version='1.0' xml:lang='ro-RO'>
+            <voice xml:lang='ro-RO' name='${selectedVoice}'>
+                ${text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+            </voice>
+        </speak>
+    `;
 
     try {
         const response = await axios.post(
-            'https://api.openai.com/v1/audio/speech', 
-            {
-                model: "tts-1-hd", // Modelul High Definition
-                input: text,
-                voice: voice || "alloy",
-                speed: parseFloat(speed) || 1.0,
-                response_format: "mp3"
-            }, 
+            `https://${AZURE_REGION}.tts.speech.microsoft.com/cognitiveservices/v1`,
+            ssml,
             {
                 headers: {
-                    'Authorization': `Bearer ${OPENAI_API_KEY}`,
-                    'Content-Type': 'application/json'
+                    'Ocp-Apim-Subscription-Key': AZURE_KEY,
+                    'Content-Type': 'application/ssml+xml',
+                    'X-Microsoft-OutputFormat': 'audio-24khz-160kbitrate-mono-mp3', // Calitate inalta
+                    'User-Agent': 'Viralio'
                 },
-                responseType: 'arraybuffer' // Critic pentru fișiere audio
+                responseType: 'arraybuffer'
             }
         );
 
-        // Trimitem buffer-ul audio direct la frontend
         res.setHeader('Content-Type', 'audio/mpeg');
         res.send(response.data);
 
     } catch (error) {
-        console.error("Eroare OpenAI:", error.message);
-        if (error.response) {
-            // Afișăm eroarea exactă de la OpenAI în consolă pentru debugging
-            console.error("Detalii eroare:", error.response.data.toString());
-        }
+        console.error("Eroare Azure:", error.message);
         res.status(500).json({ error: 'Eroare la generarea vocii.' });
     }
 });
 
-// --- RUTE FRONTEND ---
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
-    console.log(`🚀 Server pornit pe portul ${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Azure Voice ruleaza pe portul ${PORT}`));
