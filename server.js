@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Preluam datele si stergem mecanic absolut orice spatiu invizibil din fata sau din spate
+// Preluam datele si stergem mecanic absolut orice spatiu invizibil
 const AZURE_KEY = process.env.AZURE_API_KEY ? process.env.AZURE_API_KEY.trim() : null;
 const AZURE_REGION = process.env.AZURE_REGION ? process.env.AZURE_REGION.trim() : 'eastus';
 
@@ -36,13 +36,14 @@ app.post('/api/generate', async (req, res) => {
     `;
 
     try {
-        // Comunicare DIRECTA (fara token) - Metoda obligatorie pentru noile chei Foundry
         const response = await axios.post(
             `https://${AZURE_REGION}.tts.speech.microsoft.com/cognitiveservices/v1`,
             ssml,
             {
                 headers: {
                     'Ocp-Apim-Subscription-Key': AZURE_KEY,
+                    // SOLUTIA MAGICA PENTRU CHEILE FOUNDRY:
+                    'Ocp-Apim-Subscription-Region': AZURE_REGION, 
                     'Content-Type': 'application/ssml+xml',
                     'X-Microsoft-OutputFormat': 'audio-24khz-160kbitrate-mono-mp3',
                     'User-Agent': 'Viralio'
@@ -56,7 +57,6 @@ app.post('/api/generate', async (req, res) => {
         res.send(response.data);
 
     } catch (error) {
-        // Logam in consola de la Coolify exact motivul de la Microsoft, ca sa nu mai bajbaim
         console.error("❌ Eroare Azure HTTP Code:", error.response?.status);
         if (error.response && error.response.data) {
             const errText = Buffer.from(error.response.data).toString('utf8');
@@ -64,7 +64,7 @@ app.post('/api/generate', async (req, res) => {
         }
         
         if (error.response?.status === 401) {
-             return res.status(401).json({ error: 'Eroare 401: Cheia încă nu s-a propagat (durează ~10 min) sau este invalidă.' });
+             return res.status(401).json({ error: 'Eroare 401: Acces Respins. Verifică log-urile din Coolify.' });
         }
         
         res.status(500).json({ error: 'Eroare la generarea vocii.' });
