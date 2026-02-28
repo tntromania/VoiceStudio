@@ -11,77 +11,80 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Preluam cheile
-const AZURE_KEY = process.env.AZURE_API_KEY ? process.env.AZURE_API_KEY.trim() : null;
-const AZURE_REGION = process.env.AZURE_REGION ? process.env.AZURE_REGION.trim() : 'eastus';
+// CURĂȚARE EXTREMĂ: Ștergem orice spațiu și orice ghilimea pusă accidental în Coolify
+let AZURE_KEY = process.env.AZURE_API_KEY || '';
+AZURE_KEY = AZURE_KEY.replace(/['"]/g, '').trim(); 
 
-// Functie secreta: Cere un Token de Acces de la Microsoft inainte de generare
-async function getAccessToken() {
-    try {
-        const response = await axios.post(
-            `https://${AZURE_REGION}.api.cognitive.microsoft.com/sts/v1.0/issueToken`,
-            null,
-            {
-                headers: {
-                    'Ocp-Apim-Subscription-Key': AZURE_KEY
-                }
-            }
-        );
-        return response.data; // Asta e Token-ul lung de care are nevoie serverul de voce
-    } catch (error) {
-        throw new Error("Nu s-a putut obține Token-ul Azure. Verifică API Key-ul.");
-    }
-}
+let AZURE_REGION = process.env.AZURE_REGION || 'eastus';
+AZURE_REGION = AZURE_REGION.replace(/['"]/g, '').trim();
 
 app.post('/api/generate', async (req, res) => {
     const { text, voiceId } = req.body;
 
     if (!AZURE_KEY) {
-        return res.status(500).json({ error: 'Lipsește API Key Azure.' });
+        return res.status(500).json({ error: 'Lipsește API Key Azure din variabile.' });
     }
     if (!text) return res.status(400).json({ error: 'Introdu textul.' });
 
+    // Setam vocea
     const selectedVoice = voiceId || 'ro-RO-EmilNeural';
 
-    // Formatul SSML acceptat de Azure
+    // SSML CORECTAT 100% cu xmlns cerut de Microsoft (aici era buba tacuta)
     const ssml = `
-        <speak version='1.0' xml:lang='ro-RO'>
-            <voice xml:lang='ro-RO' name='${selectedVoice}'>
+        <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='ro-RO'>
+            <voice name='${selectedVoice}'>
                 ${text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}
             </voice>
         </speak>
-    `;
+    `.trim();
 
     try {
-        // PASUL 1: Obtinem Biletul de Voie (Token)
-        const token = await getAccessToken();
+        console.log(`[Azure] Trimitere request spre: ${selectedVoice} in regiunea ${AZURE_REGION}`);
 
-        // PASUL 2: Generam sunetul folosind Token-ul (NU cheia directa)
         const response = await axios.post(
             `https://${AZURE_REGION}.tts.speech.microsoft.com/cognitiveservices/v1`,
             ssml,
             {
                 headers: {
-                    // Aici trimitem Tokenul obtinut, NU AZURE_KEY!
-                    'Authorization': `Bearer ${token}`, 
+                    'Ocp-Apim-Subscription-Key': AZURE_KEY,
                     'Content-Type': 'application/ssml+xml',
                     'X-Microsoft-OutputFormat': 'audio-24khz-160kbitrate-mono-mp3',
                     'User-Agent': 'Viralio'
                 },
-                responseType: 'arraybuffer' // Extrem de important pentru fisiere audio
+                responseType: 'arraybuffer' // Magic word pentru a primi mp3
             }
         );
 
+        console.log(`[Azure] Succes! Fisier generat.`);
+        
         // Trimitem melodia MP3 spre front-end
         res.setHeader('Content-Type', 'audio/mpeg');
         res.send(response.data);
 
     } catch (error) {
-        console.error("❌ Eroare Generare Azure:", error.response?.status);
-        if (error.response && error.response.data) {
-            console.error("❌ Detalii Azure:", Buffer.from(error.response.data).toString('utf8'));
+        // SISTEMUL NOU DE EROARE (ne spune fix ce-l doare pe Microsoft)
+        console.error("❌ Eroare in Catch:", error.message);
+        
+        if (error.response) {
+            console.error("❌ Status Microsoft:", error.response.status);
+            
+            // Transformam buffer-ul primit de la ei in text citibil ca sa aflam cauza
+            let errText = "Eroare necunoscuta.";
+            if (Buffer.isBuffer(error.response.data)) {
+                errText = error.response.data.toString('utf8');
+            } else if (typeof error.response.data === 'string') {
+                errText = error.response.data;
+            } else {
+                errText = JSON.stringify(error.response.data);
+            }
+            console.error("❌ Mesaj direct de la Azure:", errText);
+            
+            if (error.response.status === 401) {
+                return res.status(401).json({ error: 'Eroare 401: Cheie respinsă. Asigură-te că valoarea din Coolify e pusă corect, fără spații.' });
+            }
         }
-        res.status(500).json({ error: 'Eroare la generarea vocii. Posibil ca abonamentul Azure sa nu fie activat.' });
+        
+        res.status(500).json({ error: 'Eroare la generarea vocii.' });
     }
 });
 
@@ -91,6 +94,6 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`🚀 Azure Voice ruleaza pe portul ${PORT}`);
-    console.log(`🔑 Key detectat: ${AZURE_KEY ? 'OK' : 'LIPSESTE'}`);
-    console.log(`🌍 Regiune: ${AZURE_REGION}`);
+    console.log(`🔑 Key detectat: ${AZURE_KEY.length} caractere`);
+    console.log(`🌍 Regiune setata: ${AZURE_REGION}`);
 });
