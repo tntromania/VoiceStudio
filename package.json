@@ -1,7 +1,7 @@
 {
   "name": "viralio-voice",
-  "version": "1.0.0",
-  "description": "Voice AI Engine for Viralio via Azure SDK",
+  "version": "2.0.0",
+  "description": "Voice AI Engine via Replicate",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -10,6 +10,6 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "microsoft-cognitiveservices-speech-sdk": "^1.37.0"
+    "replicate": "^0.29.0"
   }
 }
