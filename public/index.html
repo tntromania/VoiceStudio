@@ -31,28 +31,41 @@
         .modal-content { background: #ffffff; border-radius: 28px; padding: 40px; text-align: center; max-width: 420px; width: 90%; transform: translateY(20px); transition: 0.4s; box-shadow: 0 40px 80px -20px rgba(0,0,0,0.2); }
         #login-modal.show .modal-content { transform: translateY(0); }
         
+        /* Custom Sliders for ElevenLabs */
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #4f46e5; cursor: pointer; margin-top: -6px; box-shadow: 0 2px 6px rgba(79, 70, 229, 0.4); border: 2px solid white; transition: 0.2s; }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: #e2e8f0; border-radius: 2px; }
+        
+        /* Custom Toggle Switch */
+        .toggle-checkbox:checked { right: 0; border-color: #4f46e5; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #4f46e5; }
+        .toggle-checkbox { right: 0; z-index: 1; border-color: #e2e8f0; transition: all 0.3s; }
+        .toggle-label { width: 44px; height: 24px; background-color: #e2e8f0; border-radius: 9999px; transition: all 0.3s; cursor: pointer; position: relative; display: inline-block; }
+        .toggle-label:after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background-color: white; border-radius: 50%; transition: all 0.3s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        .toggle-checkbox:checked + .toggle-label:after { transform: translateX(20px); }
+
         /* Player & EQ Animations */
         .glass-player { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.5); }
         .eq-bar { width: 4px; border-radius: 2px; background-color: #4f46e5; height: 4px; transition: height 0.1s; }
         .playing .eq-bar { animation: eqBounce 0.8s ease-in-out infinite alternate; }
         @keyframes eqBounce { 0% { height: 4px; } 100% { height: 24px; } }
         
-        /* Custom Loader */
         .spinner { border: 3px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: none; }
         .is-loading .spinner { display: block; }
         .is-loading .btn-text { display: none; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="h-[100dvh] flex flex-col relative">
 
-<div class="absolute top-0 right-1/4 w-[500px] h-[500px] bg-pink-500/10 rounded-full blur-[100px] pointer-events-none z-0 mix-blend-multiply"></div>
-<div class="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none z-0 mix-blend-multiply"></div>
+<div class="absolute top-0 right-1/4 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none z-0"></div>
 
 <div class="z-50 flex w-full justify-center px-2 py-4 md:px-6 md:pt-4 pb-2">
     <nav class="w-full rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-xl shadow-sm px-5 md:px-6 py-2.5 flex justify-between items-center relative z-10 max-w-screen-2xl">
         <a class="flex items-center font-black text-xl tracking-tight text-slate-900" href="https://viralio.ro">
             <div class="w-8 h-8 rounded-xl bg-gradient-viralio flex items-center justify-center text-white mr-2.5 shadow-md"><i class="fa-solid fa-bolt text-sm"></i></div>
-            Viralio <span class="hidden md:inline-block text-xs font-semibold text-slate-400 ml-2 border-l border-slate-200 pl-2 mt-1">Voice Engine AI</span>
+            Viralio <span class="hidden md:inline-block text-xs font-semibold text-slate-400 ml-2 border-l border-slate-200 pl-2 mt-1">Voice Engine Pro</span>
         </a>
         
         <div class="flex items-center justify-end space-x-3">
@@ -71,100 +84,145 @@
     </nav>
 </div>
 
-<div id="login-modal">
-    <div class="modal-content relative">
-        <button class="absolute top-4 right-5 text-slate-400 hover:text-slate-900" onclick="closeLoginModal()"><i class="fa-solid fa-xmark text-xl"></i></button>
-        <div class="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center text-3xl mx-auto mb-4 border border-indigo-100"><i class="fas fa-fingerprint"></i></div>
-        <h2 class="text-2xl font-extrabold mb-2 text-slate-900">Intră în cont</h2>
-        <p class="text-slate-500 text-sm mb-6">Conectează-te pentru a genera voci AI.</p>
-        <div class="flex justify-center bg-slate-50 py-3 rounded-2xl border border-slate-100">
-            <div id="g_id_onload" data-client_id="743541351685-br4h5r61n3ai28bbhm9blt34944rju8p.apps.googleusercontent.com" data-context="signin" data-ux_mode="popup" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
-            <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div>
-        </div>
-    </div>
-</div>
-
-<main class="flex-1 w-full max-w-screen-2xl mx-auto p-2 pb-32 md:pb-24 z-10 flex flex-col lg:flex-row gap-6">
+<main class="flex-1 w-full max-w-screen-2xl mx-auto p-2 pb-32 md:pb-24 z-10 flex flex-col xl:flex-row gap-6">
     
-    <div class="flex-1 bg-white rounded-3xl border border-slate-200 shadow-sm p-6 md:p-8 flex flex-col h-full min-h-[500px]">
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-                <i class="fa-solid fa-keyboard text-viralio-500"></i> Script Text
-            </h2>
-            <div class="bg-slate-50 border border-slate-200 text-slate-500 font-mono text-xs px-3 py-1.5 rounded-lg font-bold">
-                <span id="char-count" class="text-viralio-600">0</span> / 5000
+    <div class="flex-1 flex flex-col gap-6">
+        
+        <div class="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 md:p-8 flex flex-col flex-1 min-h-[400px]">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-4">
+                <h2 class="text-lg font-black text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-keyboard text-viralio-500"></i> Script Text
+                </h2>
+                <div class="bg-slate-50 border border-slate-200 text-slate-500 font-mono text-xs px-3 py-1 rounded-lg font-bold">
+                    <span id="char-count" class="text-viralio-600">0</span> / 5000
+                </div>
+            </div>
+            
+            <textarea id="text-input" class="flex-1 w-full bg-transparent border-none outline-none resize-none text-slate-800 text-lg md:text-xl font-medium leading-relaxed placeholder:text-slate-300" placeholder="Lipește aici script-ul tău. Modelul Turbo v2.5 va respecta intonația, semnele de punctuație și ritmul natural al limbii române..."></textarea>
+            
+            <div class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-100">
+                <button onclick="clearText()" class="px-4 py-2 bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-500 rounded-xl text-sm font-bold transition-colors border border-slate-200 flex items-center gap-2"><i class="fa-solid fa-eraser"></i> Curăță</button>
+                <button onclick="pasteText()" class="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl text-sm font-bold transition-colors border border-slate-200 flex items-center gap-2"><i class="fa-solid fa-paste"></i> Lipește</button>
+                <button onclick="insertSample()" class="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl text-sm font-bold transition-colors border border-indigo-200 flex items-center gap-2 ml-auto"><i class="fa-solid fa-magic-wand-sparkles"></i> Test Viral</button>
             </div>
         </div>
-        
-        <textarea id="text-input" class="flex-1 w-full bg-transparent border-none outline-none resize-none text-slate-800 text-lg md:text-xl font-medium leading-relaxed placeholder:text-slate-300" placeholder="Lipește aici textul tău. Rețeaua neurală va citi respectând semnele de punctuație și intonația naturală a limbii române..."></textarea>
-        
-        <div class="flex flex-wrap gap-2 mt-6 pt-4 border-t border-slate-100">
-            <button onclick="clearText()" class="px-4 py-2 bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-500 rounded-xl text-sm font-bold transition-colors border border-slate-200 hover:border-red-200 flex items-center gap-2">
-                <i class="fa-solid fa-eraser"></i> Curăță
-            </button>
-            <button onclick="pasteText()" class="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl text-sm font-bold transition-colors border border-slate-200 flex items-center gap-2">
-                <i class="fa-solid fa-paste"></i> Lipește
-            </button>
-            <button onclick="insertSample()" class="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl text-sm font-bold transition-colors border border-indigo-200 flex items-center gap-2 ml-auto">
-                <i class="fa-solid fa-wand-magic-sparkles"></i> Text de Test
-            </button>
+
+        <div class="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 md:p-8">
+            <h3 class="text-sm font-black text-slate-900 mb-6 flex items-center gap-2"><i class="fa-solid fa-sliders text-viralio-500"></i> Setări Avansate (ElevenLabs Turbo v2.5)</h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <div class="flex justify-between items-end mb-2">
+                        <div>
+                            <label class="text-sm font-bold text-slate-700 block">Stabilitate (Stability)</label>
+                            <span class="text-[0.65rem] text-slate-400 font-medium">Mic: Emoțional | Mare: Monoton</span>
+                        </div>
+                        <span class="text-xs font-black text-viralio-600 bg-viralio-50 px-2 py-1 rounded" id="val-stability">50%</span>
+                    </div>
+                    <input type="range" id="param-stability" min="0" max="100" value="50" oninput="updateVal('stability', this.value)">
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-end mb-2">
+                        <div>
+                            <label class="text-sm font-bold text-slate-700 block">Fidelitate (Similarity)</label>
+                            <span class="text-[0.65rem] text-slate-400 font-medium">Cât de mult respectă vocea originală</span>
+                        </div>
+                        <span class="text-xs font-black text-viralio-600 bg-viralio-50 px-2 py-1 rounded" id="val-similarity">75%</span>
+                    </div>
+                    <input type="range" id="param-similarity" min="0" max="100" value="75" oninput="updateVal('similarity', this.value)">
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-end mb-2">
+                        <div>
+                            <label class="text-sm font-bold text-slate-700 block">Exagerare Stil (Style)</label>
+                            <span class="text-[0.65rem] text-slate-400 font-medium">Dramatizează intenționat lectura</span>
+                        </div>
+                        <span class="text-xs font-black text-viralio-600 bg-viralio-50 px-2 py-1 rounded" id="val-style">0%</span>
+                    </div>
+                    <input type="range" id="param-style" min="0" max="100" value="0" oninput="updateVal('style', this.value)">
+                </div>
+
+                <div class="flex items-center justify-between bg-slate-50 border border-slate-200 p-4 rounded-2xl">
+                    <div>
+                        <label class="text-sm font-bold text-slate-700 block mb-0.5">Speaker Boost</label>
+                        <span class="text-[0.65rem] text-slate-400 font-medium leading-tight block">Crește claritatea generală.<br>Recomandat activat.</span>
+                    </div>
+                    <div class="relative inline-block w-11 mr-2 align-middle select-none">
+                        <input type="checkbox" name="toggle" id="param-boost" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer opacity-0" checked/>
+                        <label for="param-boost" class="toggle-label block overflow-hidden h-6 rounded-full bg-slate-300 cursor-pointer"></label>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <aside class="w-full lg:w-[450px] flex flex-col gap-6 shrink-0">
+    <aside class="w-full xl:w-[450px] flex flex-col gap-6 shrink-0">
         
-        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
-            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">1. Alege Actorul Vocal</h3>
+        <div class="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6">
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Librărie Voci (Premium)</h3>
             
-            <div class="space-y-3 mb-8" id="voice-grid">
-                <div class="voice-card active cursor-pointer p-3 rounded-2xl border-2 border-viralio-500 bg-viralio-50/50 flex items-center gap-4 transition-all" onclick="selectVoice('ro-RO-EmilNeural', this)">
-                    <div class="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-lg shadow-sm">EM</div>
+            <div class="space-y-3 mb-8 h-[360px] overflow-y-auto pr-2" id="voice-grid">
+                <div class="voice-card active cursor-pointer p-3 rounded-2xl border-2 border-viralio-500 bg-viralio-50 flex items-center gap-4 transition-all" onclick="selectVoice('pNInz6obpgDQGcFmaJgB', this)">
+                    <div class="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-lg shadow-md">AD</div>
                     <div class="flex-1">
-                        <p class="text-sm font-black text-slate-900 leading-tight mb-0.5">Emil <span class="bg-amber-100 text-amber-600 text-[0.55rem] px-1.5 py-0.5 rounded uppercase ml-1">Viral</span></p>
-                        <p class="text-[0.7rem] font-bold text-slate-500">Masculin • Povești & Facts</p>
+                        <p class="text-sm font-black text-slate-900 leading-tight mb-0.5">Adam <span class="bg-amber-100 text-amber-600 text-[0.55rem] px-1.5 py-0.5 rounded uppercase ml-1">Viral</span></p>
+                        <p class="text-[0.7rem] font-bold text-slate-500">Masculin • Profund & Povești</p>
                     </div>
                     <i class="fa-solid fa-circle-check text-viralio-500 text-xl check-icon"></i>
                 </div>
                 
-                <div class="voice-card cursor-pointer p-3 rounded-2xl border-2 border-slate-100 hover:border-slate-200 flex items-center gap-4 transition-all" onclick="selectVoice('ro-RO-AlinaNeural', this)">
-                    <div class="w-12 h-12 rounded-xl bg-pink-500 text-white flex items-center justify-center font-black text-lg shadow-sm">AL</div>
+                <div class="voice-card cursor-pointer p-3 rounded-2xl border-2 border-slate-100 hover:border-slate-300 flex items-center gap-4 transition-all" onclick="selectVoice('erXw95b93m9966v8Fv50', this)">
+                    <div class="w-12 h-12 rounded-xl bg-indigo-500 text-white flex items-center justify-center font-black text-lg shadow-md">AN</div>
                     <div class="flex-1">
-                        <p class="text-sm font-black text-slate-900 leading-tight mb-0.5">Alina</p>
-                        <p class="text-[0.7rem] font-bold text-slate-500">Feminin • Cald & Clar</p>
+                        <p class="text-sm font-black text-slate-900 leading-tight mb-0.5">Antoni</p>
+                        <p class="text-[0.7rem] font-bold text-slate-500">Masculin • Cald & Prietenos</p>
                     </div>
                     <i class="fa-solid fa-circle-check text-slate-200 text-xl check-icon hidden"></i>
                 </div>
 
-                <div class="voice-card cursor-pointer p-3 rounded-2xl border-2 border-slate-100 hover:border-slate-200 flex items-center gap-4 transition-all" onclick="selectVoice('en-US-AndrewMultilingualNeural', this)">
-                    <div class="w-12 h-12 rounded-xl bg-blue-500 text-white flex items-center justify-center font-black text-lg shadow-sm">AN</div>
+                <div class="voice-card cursor-pointer p-3 rounded-2xl border-2 border-slate-100 hover:border-slate-300 flex items-center gap-4 transition-all" onclick="selectVoice('EXAVITQu4vr4xnSDTE4L', this)">
+                    <div class="w-12 h-12 rounded-xl bg-pink-500 text-white flex items-center justify-center font-black text-lg shadow-md">BE</div>
                     <div class="flex-1">
-                        <p class="text-sm font-black text-slate-900 leading-tight mb-0.5">Andrew <span class="bg-slate-100 text-slate-500 text-[0.55rem] px-1.5 py-0.5 rounded uppercase ml-1">EN</span></p>
-                        <p class="text-[0.7rem] font-bold text-slate-500">Masculin • Internațional</p>
+                        <p class="text-sm font-black text-slate-900 leading-tight mb-0.5">Bella</p>
+                        <p class="text-[0.7rem] font-bold text-slate-500">Feminin • Profesional & Clar</p>
+                    </div>
+                    <i class="fa-solid fa-circle-check text-slate-200 text-xl check-icon hidden"></i>
+                </div>
+
+                <div class="voice-card cursor-pointer p-3 rounded-2xl border-2 border-slate-100 hover:border-slate-300 flex items-center gap-4 transition-all" onclick="selectVoice('21m00Tcm4TlvDq8ikWAM', this)">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-black text-lg shadow-md">RA</div>
+                    <div class="flex-1">
+                        <p class="text-sm font-black text-slate-900 leading-tight mb-0.5">Rachel</p>
+                        <p class="text-[0.7rem] font-bold text-slate-500">Feminin • Relaxat / Conversație</p>
+                    </div>
+                    <i class="fa-solid fa-circle-check text-slate-200 text-xl check-icon hidden"></i>
+                </div>
+
+                <div class="voice-card cursor-pointer p-3 rounded-2xl border-2 border-slate-100 hover:border-slate-300 flex items-center gap-4 transition-all" onclick="selectVoice('N2lVS1w4EtoT3dr4eOWO', this)">
+                    <div class="w-12 h-12 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-lg shadow-md">CA</div>
+                    <div class="flex-1">
+                        <p class="text-sm font-black text-slate-900 leading-tight mb-0.5">Callum</p>
+                        <p class="text-[0.7rem] font-bold text-slate-500">Masculin • Tonalitate Gravă</p>
                     </div>
                     <i class="fa-solid fa-circle-check text-slate-200 text-xl check-icon hidden"></i>
                 </div>
             </div>
 
-            <div class="flex justify-between items-center mb-3">
-                <span class="text-sm font-bold text-slate-500">Cost Procesare:</span>
-                <span class="font-black text-amber-600 bg-amber-50 px-3 py-1 rounded-lg border border-amber-200 flex items-center gap-1.5"><i class="fa-solid fa-coins"></i> 1 Credit</span>
-            </div>
-            
-            <button id="generateBtn" onclick="generateSpeech()" class="w-full bg-slate-900 text-white py-4 rounded-xl font-black text-lg flex items-center justify-center gap-2 shadow-xl hover:bg-viralio-600 hover:-translate-y-1 transition-all">
-                <span class="btn-text flex items-center gap-2"><i class="fa-solid fa-microphone-lines text-viralio-400"></i> SINTETIZEAZĂ VOCEA</span>
+            <button id="generateBtn" onclick="generateSpeech()" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-2 shadow-xl hover:bg-viralio-600 hover:-translate-y-1 transition-all">
+                <span class="btn-text flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> GENEREAZĂ STUDIO HD</span>
                 <div class="spinner"></div>
             </button>
         </div>
 
-        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 flex-1 flex flex-col overflow-hidden">
-            <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
-                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Istoric Sesiune</h3>
-                <button onclick="clearHistory()" class="text-[0.65rem] font-bold text-red-400 hover:text-red-600 uppercase tracking-wider">Șterge</button>
-            </div>
+        <div class="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 flex-1 min-h-[200px] flex flex-col">
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-3 flex justify-between">
+                Istoric <span onclick="clearHistory()" class="cursor-pointer text-red-400 hover:text-red-600">Sterge</span>
+            </h3>
             <div id="history-container" class="flex-1 overflow-y-auto space-y-3 pr-2">
-                <div class="text-center text-slate-400 text-sm font-medium py-6" id="empty-history">
-                    <i class="fa-solid fa-clock-rotate-left text-2xl mb-2 opacity-50 block"></i>
-                    Nicio generare recentă.
+                <div class="text-center text-slate-400 text-sm font-medium py-4" id="empty-history">
+                    <i class="fa-solid fa-folder-open text-2xl mb-2 opacity-50 block"></i> Nu ai generat nimic încă.
                 </div>
             </div>
         </div>
@@ -172,16 +230,15 @@
     </aside>
 </main>
 
-<div id="playerBar" class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-3xl glass-player rounded-3xl p-4 flex items-center gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.15)] translate-y-40 transition-transform duration-500 z-50">
-    <button id="mainPlayBtn" class="w-12 h-12 md:w-14 md:h-14 shrink-0 rounded-full bg-slate-900 text-white flex items-center justify-center text-lg md:text-xl shadow-lg hover:scale-105 transition-all">
+<div id="playerBar" class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-3xl glass-player rounded-[2rem] p-4 flex items-center gap-5 shadow-[0_30px_60px_rgba(0,0,0,0.2)] translate-y-40 transition-transform duration-500 z-50">
+    <button id="mainPlayBtn" class="w-12 h-12 md:w-14 md:h-14 shrink-0 rounded-full bg-slate-900 text-white flex items-center justify-center text-lg shadow-lg hover:scale-105 transition-all">
         <i class="fa-solid fa-play ml-1"></i>
     </button>
     
     <div class="flex-1 overflow-hidden">
-        <div class="flex items-end justify-between mb-1.5 px-1">
-            <span class="text-xs md:text-sm font-black text-slate-900 truncate pr-4" id="nowPlayingText">Vocal Generation</span>
-            
-            <div class="flex items-end gap-1 h-6 shrink-0" id="eq-container">
+        <div class="flex items-end justify-between mb-2 px-1">
+            <span class="text-xs md:text-sm font-black text-slate-900 truncate pr-4" id="nowPlayingText">Voice Generation</span>
+            <div class="flex items-end gap-1 h-6 shrink-0 playing" id="eq-container">
                 <div class="eq-bar" style="animation-delay: 0.1s"></div>
                 <div class="eq-bar" style="animation-delay: 0.3s"></div>
                 <div class="eq-bar" style="animation-delay: 0.2s"></div>
@@ -189,115 +246,60 @@
                 <div class="eq-bar hidden md:block" style="animation-delay: 0.15s"></div>
             </div>
         </div>
-        
         <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden cursor-pointer" id="progressContainer">
             <div id="progressBar" class="h-full bg-gradient-to-r from-viralio-600 to-pink-500 w-0 pointer-events-none transition-all duration-75"></div>
         </div>
     </div>
 
-    <a id="downloadBtn" href="#" download="viralio_voice.mp3" class="w-12 h-12 shrink-0 rounded-full border-2 border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:text-viralio-600 hover:border-viralio-200 transition-all shadow-sm">
+    <a id="downloadBtn" href="#" download="viralio_pro_voice.mp3" class="w-12 h-12 shrink-0 rounded-full border-2 border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:text-viralio-600 hover:border-viralio-200 transition-all shadow-sm">
         <i class="fa-solid fa-download"></i>
     </a>
 </div>
 
 <audio id="mainAudio" class="hidden"></audio>
 
+<div id="login-modal"><div class="modal-content relative"><button class="absolute top-4 right-4" onclick="closeLoginModal()"><i class="fa-solid fa-xmark"></i></button><h2>Acces Viralio</h2></div></div>
+
 <script>
-    // --- AUTH LOGIC ---
-    function setToken(token) { document.cookie = "viralio_token=" + token + "; domain=.viralio.ro; path=/; max-age=604800; Secure; SameSite=Lax"; }
-    function getToken() { const match = document.cookie.match(/(?:^|; )viralio_token=([^;]*)/); return match ? match[1] : null; }
-    function removeToken() { document.cookie = "viralio_token=; domain=.viralio.ro; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; }
-
-    const loginModal = document.getElementById('login-modal');
-    function openLoginModal() { loginModal.classList.add('show'); }
-    function closeLoginModal() { loginModal.classList.remove('show'); }
-
-    window.handleCredentialResponse = async function(response) {
-        try {
-            const res = await fetch('https://downloader.viralio.ro/api/auth/google', { 
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential: response.credential }) 
-            });
-            const data = await res.json();
-            if(data.token) { setToken(data.token); closeLoginModal(); updateUI(data.user); } 
-            else { alert("Eroare autentificare"); }
-        } catch (e) { alert('Eroare conexiune cu serverul.'); }
-    }
-
-    function updateUI(user) {
-        document.getElementById('login-top-btn')?.setAttribute('style', 'display: none !important');
-        document.getElementById('login-top-btn-mobile')?.setAttribute('style', 'display: none !important');
-        const userNav = document.getElementById('user-profile');
-        if(userNav){ userNav.classList.remove('hidden'); userNav.style.display = 'flex'; }
-        document.getElementById('nav-name').innerText = user.name.split(' ')[0];
-        document.getElementById('nav-avatar').src = user.picture;
-        document.getElementById('nav-credits').innerText = user.credits;
-    }
-
-    function logout() { removeToken(); location.reload(); }
-
-    window.onload = async () => {
-        loadHistory();
-        const token = getToken();
-        if(token) {
-            try {
-                const res = await fetch('https://downloader.viralio.ro/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
-                if(res.ok) { const data = await res.json(); updateUI(data.user); } else { removeToken(); }
-            } catch (e) {}
-        }
-    };
-
-    // --- APP LOGIC ---
-    let selectedVoiceId = 'ro-RO-EmilNeural';
-    let selectedVoiceName = 'Emil';
+    // --- UI & PARAMS LOGIC ---
+    let selectedVoiceId = 'pNInz6obpgDQGcFmaJgB'; // Default Adam
+    let selectedVoiceName = 'Adam';
     const textInput = document.getElementById('text-input');
-    const charCount = document.getElementById('char-count');
     const MAX_CHARS = 5000;
 
-    // Char Counter
+    // Update Param Values on screen
+    function updateVal(param, val) {
+        document.getElementById(`val-${param}`).innerText = val + '%';
+    }
+
     textInput.addEventListener('input', () => {
         let len = textInput.value.length;
-        if (len > MAX_CHARS) {
-            textInput.value = textInput.value.substring(0, MAX_CHARS);
-            len = MAX_CHARS;
-        }
-        charCount.innerText = len;
-        charCount.className = len > MAX_CHARS * 0.9 ? 'text-red-500' : 'text-viralio-600';
+        if (len > MAX_CHARS) { textInput.value = textInput.value.substring(0, MAX_CHARS); len = MAX_CHARS; }
+        document.getElementById('char-count').innerText = len;
+        document.getElementById('char-count').className = len > MAX_CHARS * 0.9 ? 'text-red-500' : 'text-viralio-600';
     });
 
-    // Editor Actions
     function clearText() { textInput.value = ''; textInput.dispatchEvent(new Event('input')); }
-    async function pasteText() { 
-        try { textInput.value += await navigator.clipboard.readText(); textInput.dispatchEvent(new Event('input')); } 
-        catch(e) { alert("Nu pot accesa clipboard-ul."); }
-    }
-    function insertSample() {
-        textInput.value = "Salutare tuturor! Acesta este un test audio generat de inteligența artificială. Sună foarte natural, nu-i așa? Perfect pentru videoclipurile tale virale de pe TikTok sau YouTube Shorts.";
-        textInput.dispatchEvent(new Event('input'));
-    }
+    async function pasteText() { try { textInput.value += await navigator.clipboard.readText(); textInput.dispatchEvent(new Event('input')); } catch(e){} }
+    function insertSample() { textInput.value = "Acesta este un test pe motorul ElevenLabs Turbo v2.5. Acum pot controla stabilitatea și fidelitatea vocii direct din panoul de control. Să dăm drumul la virale!"; textInput.dispatchEvent(new Event('input')); }
 
-    // Voice Selection
     function selectVoice(id, el) {
         selectedVoiceId = id;
-        selectedVoiceName = el.querySelector('p').innerText.split(' ')[0]; // Extrage doar numele scurt
-        
+        selectedVoiceName = el.querySelector('p').innerText.split(' ')[0];
         document.querySelectorAll('.voice-card').forEach(c => {
-            c.classList.remove('active', 'border-viralio-500', 'bg-viralio-50/50');
+            c.classList.remove('active', 'border-viralio-500', 'bg-viralio-50');
             c.classList.add('border-slate-100');
             c.querySelector('.check-icon').classList.replace('text-viralio-500', 'text-slate-200');
             c.querySelector('.check-icon').classList.add('hidden');
         });
-        
         el.classList.remove('border-slate-100');
-        el.classList.add('active', 'border-viralio-500', 'bg-viralio-50/50');
+        el.classList.add('active', 'border-viralio-500', 'bg-viralio-50');
         el.querySelector('.check-icon').classList.remove('hidden');
         el.querySelector('.check-icon').classList.replace('text-slate-200', 'text-viralio-500');
     }
 
-    // Generate Audio
+    // --- API GENERATION ---
     async function generateSpeech() {
-        const token = getToken();
-        if(!token) { openLoginModal(); return; }
-        
         const text = textInput.value.trim();
         if(!text) return alert("Scrie un text pentru a genera vocea.");
 
@@ -305,80 +307,74 @@
         btn.classList.add('is-loading');
         btn.disabled = true;
 
+        // Preluam datele din Slidere (convertite din procent in decimale de la 0 la 1)
+        const stability = document.getElementById('param-stability').value / 100;
+        const similarity = document.getElementById('param-similarity').value / 100;
+        const style = document.getElementById('param-style').value / 100;
+        const boost = document.getElementById('param-boost').checked;
+
         try {
             const res = await fetch('/api/generate', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ text, voiceId: selectedVoiceId })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    text: text, 
+                    voiceId: selectedVoiceId,
+                    stability: stability,
+                    similarity_boost: similarity,
+                    style: style,
+                    use_speaker_boost: boost
+                })
             });
 
-            if (!res.ok) throw new Error("Eroare server.");
+            const data = await res.json();
+            if (!res.ok || data.error) throw new Error(data.error || "Eroare server.");
 
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
+            // Outputul de la Replicate este un link direct
+            const audioUrl = data.audioUrl;
             
-            // Deduct pseudo-credit visually (Backend should handle actual deduction)
-            const credEl = document.getElementById('nav-credits');
-            if(credEl && parseInt(credEl.innerText) > 0) credEl.innerText = parseInt(credEl.innerText) - 1;
-
-            playAudio(url, text);
-            saveToHistory(text, selectedVoiceName, url);
+            playAudio(audioUrl, text);
+            saveToHistory(text, selectedVoiceName, audioUrl);
 
         } catch (err) {
-            alert("Eroare la generare. Verifică textul și reîncearcă.");
+            alert(err.message || "A apărut o eroare. Verifică Token-ul în server.");
         } finally {
             btn.classList.remove('is-loading');
             btn.disabled = false;
         }
     }
 
-    // --- PLAYER LOGIC ---
+    // --- PLAYER & HISTORY ---
     const audioEl = document.getElementById('mainAudio');
     const playerBar = document.getElementById('playerBar');
     const playBtnIcon = document.getElementById('mainPlayBtn').querySelector('i');
     const progressContainer = document.getElementById('progressContainer');
     const progressBar = document.getElementById('progressBar');
+    const eqContainer = document.getElementById('eq-container');
 
     function playAudio(url, text) {
         audioEl.src = url;
         document.getElementById('downloadBtn').href = url;
         document.getElementById('nowPlayingText').innerText = text.substring(0, 40) + "...";
-        playerBar.style.transform = 'translate(-50%, 0)'; // Slide up
+        playerBar.style.transform = 'translate(-50%, 0)';
         audioEl.play();
     }
 
-    document.getElementById('mainPlayBtn').onclick = () => {
-        if(audioEl.paused) audioEl.play(); else audioEl.pause();
-    };
-
-    audioEl.onplay = () => {
-        playBtnIcon.className = "fa-solid fa-pause";
-        playerBar.classList.add('playing');
-    };
-    audioEl.onpause = () => {
-        playBtnIcon.className = "fa-solid fa-play ml-1";
-        playerBar.classList.remove('playing');
-    };
-    audioEl.onended = () => {
-        playBtnIcon.className = "fa-solid fa-play ml-1";
-        playerBar.classList.remove('playing');
-        progressBar.style.width = '0%';
-    };
+    document.getElementById('mainPlayBtn').onclick = () => { if(audioEl.paused) audioEl.play(); else audioEl.pause(); };
+    audioEl.onplay = () => { playBtnIcon.className = "fa-solid fa-pause"; eqContainer.classList.add('playing'); };
+    audioEl.onpause = () => { playBtnIcon.className = "fa-solid fa-play ml-1"; eqContainer.classList.remove('playing'); };
+    audioEl.onended = () => { playBtnIcon.className = "fa-solid fa-play ml-1"; eqContainer.classList.remove('playing'); progressBar.style.width = '0%'; };
 
     audioEl.ontimeupdate = () => {
         if(audioEl.duration) {
-            const pct = (audioEl.currentTime / audioEl.duration) * 100;
-            progressBar.style.width = pct + '%';
+            progressBar.style.width = ((audioEl.currentTime / audioEl.duration) * 100) + '%';
         }
     };
-
     progressContainer.onclick = (e) => {
         const rect = progressContainer.getBoundingClientRect();
-        const pct = (e.clientX - rect.left) / rect.width;
-        audioEl.currentTime = pct * audioEl.duration;
+        audioEl.currentTime = ((e.clientX - rect.left) / rect.width) * audioEl.duration;
     };
 
-    // --- HISTORY LOGIC ---
     function saveToHistory(text, voice, url) {
         const hist = JSON.parse(localStorage.getItem('viralio_voice_hist') || '[]');
         hist.unshift({ text: text.substring(0, 60), voice, url, time: new Date().toLocaleTimeString('ro-RO', {hour:'2-digit', minute:'2-digit'}) });
@@ -390,11 +386,7 @@
     function loadHistory() {
         const hist = JSON.parse(localStorage.getItem('viralio_voice_hist') || '[]');
         const container = document.getElementById('history-container');
-        
-        if(hist.length === 0) {
-            document.getElementById('empty-history').style.display = 'block';
-            return;
-        }
+        if(hist.length === 0) return;
         
         container.innerHTML = '';
         hist.forEach(h => {
@@ -409,9 +401,7 @@
                         <span class="mt-0.5">${h.time}</span>
                     </div>
                 </div>
-                <button class="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 flex items-center justify-center group-hover:bg-viralio-500 group-hover:text-white group-hover:border-viralio-500 transition-all shrink-0">
-                    <i class="fa-solid fa-play text-xs ml-0.5"></i>
-                </button>
+                <button class="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 flex items-center justify-center group-hover:bg-viralio-500 group-hover:text-white transition-all shrink-0"><i class="fa-solid fa-play text-xs ml-0.5"></i></button>
             `;
             container.appendChild(item);
         });
@@ -419,12 +409,10 @@
 
     function clearHistory() {
         localStorage.removeItem('viralio_voice_hist');
-        document.getElementById('history-container').innerHTML = `
-            <div class="text-center text-slate-400 text-sm font-medium py-6" id="empty-history">
-                <i class="fa-solid fa-clock-rotate-left text-2xl mb-2 opacity-50 block"></i>
-                Nicio generare recentă.
-            </div>`;
+        document.getElementById('history-container').innerHTML = '<div class="text-center text-slate-400 text-sm font-medium py-4" id="empty-history"><i class="fa-solid fa-folder-open text-2xl mb-2 opacity-50 block"></i> Nu ai generat nimic încă.</div>';
     }
+
+    window.onload = loadHistory;
 </script>
 </body>
 </html>
