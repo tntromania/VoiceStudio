@@ -14,32 +14,39 @@ app.use(express.static('public'));
 const REPLICATE_TOKEN = process.env.REPLICATE_API_TOKEN ? process.env.REPLICATE_API_TOKEN.trim() : null;
 const replicate = new Replicate({ auth: REPLICATE_TOKEN });
 
+// O bucată conceptuală pentru server.js
 app.post('/api/generate', async (req, res) => {
     const { text, voice } = req.body;
+    
+    // 1. Preluam Token-ul si verificam user-ul in baza ta de date
+    const token = req.headers.authorization.split(' ')[1];
+    const user = await verifyTokenAndGetUser(token); 
+    
+    if (!user) return res.status(401).json({ error: "Neautorizat" });
 
-    if (!REPLICATE_TOKEN) return res.status(500).json({ error: 'Lipsește API Token Replicate in Coolify.' });
-    if (!text) return res.status(400).json({ error: 'Introdu textul pentru generare.' });
+    // 2. VERIFICARE PORTOFEL VOCE
+    const cost = text.length;
+    if (user.voice_characters < cost) {
+        return res.status(403).json({ 
+            error: `Fonduri insuficiente. Ai nevoie de ${cost} caractere, dar mai ai doar ${user.voice_characters}. Fă upgrade la PRO.` 
+        });
+    }
 
     try {
-        console.log(`[Viralio 2.5 HD] Procesam vocea: ${voice || 'Paul'}`);
-        
-        // REZOLVAREA ERORII 422: Replicate cere "prompt" si un nume exact din lista lor
-        const output = await replicate.run(
-            "elevenlabs/turbo-v2.5", 
-            {
-                input: {
-                    prompt: text, // Aici era buba! Replicate foloseste 'prompt', nu 'text'
-                    voice: voice || "Paul" // Vocea default (daca pui Adam aici da eroare 422)
-                }
-            }
+        // 3. Generam vocea prin Replicate (exact cum am scris mai sus)
+        const output = await replicate.run("elevenlabs/turbo-v2.5", { ... });
+
+        // 4. SCĂDEM CARACTERELE DIN BAZA DE DATE
+        await User.updateOne(
+            { _id: user._id }, 
+            { $inc: { voice_characters: -cost } } // $inc cu minus scade direct valoarea
         );
 
-        console.log("[Viralio] Audio generat cu succes!");
-        res.json({ audioUrl: output });
+        // 5. Trimitem succes
+        res.json({ audioUrl: output, remaining_chars: user.voice_characters - cost });
 
     } catch (error) {
-        console.error("❌ Eroare Replicate:", error);
-        res.status(500).json({ error: 'A aparut o eroare la generarea vocii.' });
+        res.status(500).json({ error: 'Eroare la generare.' });
     }
 });
 
