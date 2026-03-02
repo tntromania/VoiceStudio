@@ -75,38 +75,23 @@
 
     <div class="sticky top-0 z-50 flex w-full justify-center px-2 py-4 md:p-2 max-w-screen-2xl mx-auto">
         <nav class="w-full rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-xl md:mx-12 shadow-sm px-5 md:px-8 py-3 flex justify-between items-center">
-            
             <a class="flex items-center font-black text-2xl tracking-tight text-slate-900 group" href="https://viralio.ro">
                 <div class="w-9 h-9 rounded-xl bg-gradient-viralio flex items-center justify-center text-white mr-2.5 shadow-md group-hover:scale-105 transition-transform">
-                    <i class="fa-solid fa-microphone-lines text-sm"></i>
+                    <i class="fa-solid fa-bolt"></i>
                 </div>
                 Viralio <span class="text-sm font-medium text-slate-400 ml-2 border-l border-slate-200 pl-2 mt-1">Voice AI</span>
             </a>
-            
             <div class="flex items-center justify-end space-x-3">
                 <button onclick="openLoginModal()" id="login-top-btn" class="px-5 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-viralio-600 transition-all font-semibold shadow-md text-sm">Conectează-te</button>
-                
-                <div id="user-profile" class="hidden items-center bg-slate-50 border border-slate-200 py-1 pl-1.5 pr-1.5 rounded-full shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+                <div id="user-profile" class="hidden items-center bg-slate-50 border border-slate-200 py-1 pl-1.5 pr-1.5 rounded-full">
                     <img id="nav-avatar" src="" class="w-8 h-8 rounded-full border border-slate-200">
-                    
-                    <div class="flex flex-col leading-none ml-2 mr-3">
-                        <span id="nav-name" class="text-[0.7rem] font-bold text-slate-900 mb-1"></span>
-                        
-                        <div class="flex items-center text-[0.65rem] font-bold tracking-wide">
-                            <span class="text-amber-500" title="Credite Ecosistem">
-                                <i class="fa-solid fa-bolt mr-0.5 text-[0.6rem]"></i> <span id="nav-credits">0</span>
-                            </span>
-                            <span class="text-slate-300 mx-1.5">|</span>
-                            <span class="text-viralio-600" title="Caractere Voce AI (Rămase)">
-                                <i class="fa-solid fa-font mr-0.5 text-[0.6rem]"></i> <span id="nav-chars">0</span>
-                            </span>
-                        </div>
+                    <div class="flex flex-col leading-none ml-2 mr-2">
+                        <span id="nav-name" class="text-xs font-bold text-slate-900 mb-0.5"></span>
+                        <span class="text-[0.65rem] font-bold text-viralio-600"><span id="nav-chars">0</span> Caractere</span>
                     </div>
-                    
-                    <button onclick="logout()" class="p-2 text-slate-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50" title="Deconectare"><i class="fa-solid fa-power-off text-sm"></i></button>
+                    <button onclick="logout()" class="p-2 text-slate-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50"><i class="fa-solid fa-power-off"></i></button>
                 </div>
             </div>
-            
         </nav>
     </div>
 
@@ -169,7 +154,7 @@
             <div id="tab-settings" class="flex flex-col p-6 space-y-6 overflow-y-auto no-scrollbar flex-1">
                 
                 <div class="flex justify-between items-center bg-slate-50 border border-slate-100 p-3 rounded-xl shrink-0">
-                    <span class="text-sm font-bold text-slate-700">Model Motor</span>
+                    <span class="text-sm font-bold text-slate-700">Model Motor AI</span>
                     <span class="text-xs font-black text-transparent bg-clip-text bg-gradient-viralio"><i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Viralio 2.5 HD</span>
                 </div>
 
@@ -308,10 +293,7 @@
         document.getElementById('nav-name').innerText = user.name.split(' ')[0];
         document.getElementById('nav-avatar').src = user.picture;
         
-        // 1. CREDITE GENERALE
-        document.getElementById('nav-credits').innerText = user.credits || 0;
-        
-        // 2. CARACTERE VOCE
+        // CARACTERE VOCE
         currentVoiceCharacters = user.voice_characters || 0;
         document.getElementById('nav-chars').innerText = currentVoiceCharacters.toLocaleString('ro-RO');
         
@@ -424,7 +406,6 @@
         const textLen = textInput.value.length;
         const costContainer = document.getElementById('cost-container');
         
-        // Daca are token si textul e mai mare decat ce are in cont, facem costul Rosu
         if(getToken() && textLen > currentVoiceCharacters) {
             costContainer.classList.replace('text-amber-500', 'text-red-500');
         } else {
@@ -486,7 +467,7 @@
             // Scadere vizuala Live (Fara sa dea refresh paginii)
             currentVoiceCharacters = data.remaining_chars || (currentVoiceCharacters - cost);
             document.getElementById('nav-chars').innerText = currentVoiceCharacters.toLocaleString('ro-RO');
-            checkFunds(); // Update culoarea pretului daca a scazut prea mult
+            checkFunds(); 
 
         } catch (e) {
             alert(e.message);
@@ -568,7 +549,6 @@
             const el = document.createElement('div');
             el.className = "p-3 bg-slate-50 border border-slate-100 rounded-xl hover:border-viralio-200 transition-all group flex items-center justify-between gap-3 shadow-sm";
             
-            // Apasarea din istoric e GRATIS (nu consuma credite si nu cheama serverul)
             el.innerHTML = `
                 <button onclick="launchPlayer('${h.url}', '${h.voice}', '${h.text.replace(/'/g, "\\'")}')" class="w-9 h-9 shrink-0 rounded-full bg-white shadow-md flex items-center justify-center text-slate-600 group-hover:bg-viralio-600 group-hover:text-white transition-all border border-slate-100">
                     <i class="fa-solid fa-play text-[0.7rem] ml-0.5"></i>
