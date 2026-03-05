@@ -30,15 +30,19 @@ mongoose.connect(process.env.MONGO_URI)
     .catch(err => console.error('❌ Eroare MongoDB:', err));
 
 // Schema User (Fix ca la Captions + voice_characters)
+// 1. Schema unică, completă și identică pe toate aplicațiile
 const UserSchema = new mongoose.Schema({
-    googleId: String, 
-    email: String, 
-    name: String, 
-    picture: String, 
-    credits: { type: Number, default: 10 },
-    voice_characters: { type: Number, default: 3000 }
+    googleId: { type: String, required: true, unique: true },
+    email: { type: String, required: true },
+    name: String,
+    picture: String,
+    credits: { type: Number, default: 10 }, // Universal: 10 credite
+    voice_characters: { type: Number, default: 3000 }, // Universal: 3000 caractere
+    createdAt: { type: Date, default: Date.now }
 });
-const User = mongoose.model('User', UserSchema);
+
+// 2. Crearea modelului (Atenție la o eroare comună în Mongoose unde re-definirea aruncă eroare)
+const User = mongoose.models.User || mongoose.model('User', UserSchema);
 
 // Middleware Autentificare
 const authenticate = (req, res, next) => {
@@ -60,14 +64,14 @@ app.post('/api/auth/google', async (req, res) => {
         const payload = ticket.getPayload();
         let user = await User.findOne({ googleId: payload.sub });
         
-        if (!user) {
+if (!user) {
             user = new User({ 
                 googleId: payload.sub, 
                 email: payload.email, 
                 name: payload.name, 
                 picture: payload.picture, 
-                credits: 10,
-                voice_characters: 3000 
+                credits: 10,             // Sincronizat cu HUB
+                voice_characters: 3000   // Sincronizat cu HUB
             });
             await user.save();
         }
