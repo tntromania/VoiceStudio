@@ -135,9 +135,16 @@ app.post('/api/generate', authenticate, async (req, res) => {
 
         res.json({ audioUrl: `/downloads/${fileName}`, remaining_chars: user.voice_characters });
 
-    } catch (error) {
-        console.error("ERROR VOICE GEN:", error);
-        res.status(500).json({ error: "Eroare la generarea vocii." });
+} catch (error) {
+        console.error("ERROR VOICE GEN:", error.message || error);
+        
+        // Dacă eroarea vine de la limita impusă de Replicate (429 Too Many Requests)
+        if (error.response && error.response.status === 429 || error.status === 429 || (error.message && error.message.includes('429'))) {
+            return res.status(429).json({ error: "Sistemul este suprasolicitat. Te rugăm să aștepți 5 secunde între generări!" });
+        }
+
+        // Pentru orice altă eroare
+        res.status(500).json({ error: "Eroare tehnică la generarea vocii. Încearcă din nou." });
     }
 });
 
