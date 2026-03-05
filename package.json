@@ -12,6 +12,7 @@
     "express": "^4.19.2",
     "replicate": "^0.29.0",
     "mongoose": "^8.2.1",
+    "google-auth-library": "^9.0.0",
     "jsonwebtoken": "^9.0.2"
   }
 }
