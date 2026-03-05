@@ -9,12 +9,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="manifest" href="/site.webmanifest">
-    <link rel="shortcut icon" href="/favicon.ico">
+	
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png?v=3">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png?v=3">
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png?v=3">
+    <link rel="manifest" href="/assets/site.webmanifest?v=3">
+    <link rel="shortcut icon" href="/assets/favicon.ico?v=3">
     
     <script>
         tailwind.config = {
@@ -35,7 +35,6 @@
         body { background-color: #F8FAFC; font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; color: #09090b; }
         .bg-gradient-viralio { background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%); }
         
-        /* Scrollbar fin */
         ::-webkit-scrollbar { width: 6px; } 
         ::-webkit-scrollbar-track { background: transparent; } 
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -43,7 +42,6 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* Custom Sliders Pro */
         .viralio-slider { -webkit-appearance: none; width: 100%; background: transparent; position: relative; z-index: 10; cursor: pointer; }
         .viralio-slider:focus { outline: none; }
         .viralio-slider::-webkit-slider-runnable-track { width: 100%; height: 6px; background: #e2e8f0; border-radius: 4px; }
@@ -51,17 +49,14 @@
         .viralio-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
         .slider-progress { position: absolute; top: 11px; left: 0; height: 6px; background: #4f46e5; border-radius: 4px; pointer-events: none; z-index: 5; }
 
-        /* Dropdown Voci */
         .v-dropdown { display: none; opacity: 0; transform: translateY(-10px); transition: all 0.2s ease; }
         .v-dropdown.show { display: block; opacity: 1; transform: translateY(0); }
         
-        /* Modals */
         #login-modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); z-index: 99999; align-items: center; justify-content: center; opacity: 0; transition: 0.3s; }
         #login-modal.show { display: flex; opacity: 1; }
         .modal-content { background: #ffffff; border-radius: 28px; padding: 40px; text-align: center; max-width: 420px; width: 90%; transform: translateY(20px); transition: 0.4s; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
         #login-modal.show .modal-content { transform: translateY(0); }
 
-        /* Loader & EQ */
         .loader { border: 3px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: none; }
         .is-generating .loader { display: block; }
         .is-generating .btn-text { display: none; }
@@ -70,6 +65,9 @@
         .eq-bar { width: 4px; border-radius: 2px; background: #ec4899; height: 4px; transition: height 0.1s; }
         .playing .eq-bar { animation: eqBounce 0.7s ease-in-out infinite alternate; }
         @keyframes eqBounce { 0% { height: 4px; } 100% { height: 20px; } }
+        
+        .preview-btn { transition: all 0.2s; }
+        .preview-btn:hover { background-color: #eef2ff; color: #4f46e5; }
     </style>
 </head>
 <body class="md:p-4 selection:bg-viralio-500 selection:text-white">
@@ -117,7 +115,6 @@
     <main class="w-full max-w-6xl mx-auto pt-8 px-4 md:px-8 z-10 relative flex flex-col lg:flex-row gap-6 items-stretch flex-1">
         
         <div class="flex-1 flex flex-col bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden animate-slide-up">
-            
             <div class="px-6 md:px-8 pt-6 pb-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
                 <h2 class="text-lg font-black text-slate-900 flex items-center gap-2">
                     Studio Voce <span class="bg-indigo-100 text-indigo-600 text-[0.65rem] px-2 py-0.5 rounded-full uppercase tracking-widest font-bold">Pro</span>
@@ -151,14 +148,12 @@
         </div>
 
         <aside class="w-full lg:w-[420px] flex flex-col bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden animate-slide-up" style="animation-delay: 0.1s;">
-            
             <div class="flex border-b border-slate-100 bg-slate-50/50 px-4 pt-4 shrink-0">
                 <button onclick="switchTab('settings')" id="tab-btn-settings" class="flex-1 py-3 text-sm font-black border-b-2 border-viralio-600 text-viralio-600 transition-all">Parametrii AI</button>
                 <button onclick="switchTab('history')" id="tab-btn-history" class="flex-1 py-3 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all">Istoric Sesiune</button>
             </div>
 
             <div id="tab-settings" class="flex flex-col p-6 space-y-6 overflow-y-auto no-scrollbar flex-1">
-                
                 <div class="flex justify-between items-center bg-slate-50 border border-slate-100 p-3 rounded-xl shrink-0">
                     <span class="text-sm font-bold text-slate-700">Model Motor AI</span>
                     <span class="text-xs font-black text-transparent bg-clip-text bg-gradient-viralio"><i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Viralio 2.5 HD</span>
@@ -171,7 +166,7 @@
                             <div class="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-xs font-bold text-white shadow-sm" id="active-voice-avatar">PA</div>
                             <div class="text-left">
                                 <span class="text-sm font-black text-slate-900 block leading-tight" id="active-voice-name">Paul</span>
-                                <span class="text-[0.65rem] font-bold text-viralio-600 uppercase" id="active-voice-badge">Masculin, Viral</span>
+                                <span class="text-[0.65rem] font-bold text-viralio-600 uppercase" id="active-voice-badge">Masculin, Documentar</span>
                             </div>
                         </div>
                         <i class="fa-solid fa-chevron-down text-slate-400"></i>
@@ -215,12 +210,27 @@
                             <input type="range" id="param-sim" min="0" max="100" value="75" class="viralio-slider" oninput="updateSlider('sim')">
                         </div>
                     </div>
+
+                    <div class="relative">
+                        <div class="flex justify-between items-end mb-1">
+                            <label class="text-sm font-bold text-slate-700">Viteză Vorbire</label>
+                            <span id="speed-val" class="text-xs font-black text-viralio-600 bg-viralio-50 px-2 py-0.5 rounded border border-viralio-100">1.0x</span>
+                        </div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[0.6rem] text-slate-400 font-bold uppercase tracking-wider">Încet (0.7x)</span>
+                            <span class="text-[0.6rem] text-slate-400 font-bold uppercase tracking-wider">Rapid (1.2x)</span>
+                        </div>
+                        <div class="relative w-full h-6 flex items-center mt-1">
+                            <div class="slider-progress bg-amber-400" id="prog-speed" style="width: 60%;"></div>
+                            <input type="range" id="param-speed" min="0.7" max="1.2" step="0.01" value="1.0" class="viralio-slider" oninput="updateSlider('speed')">
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <div id="tab-history" class="hidden flex-col h-full overflow-hidden bg-white">
                 <div class="flex justify-between items-center px-6 py-4 border-b border-slate-50 shrink-0">
-                    <span class="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest">Descărcare Gratuită</span>
+                    <span class="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest">Istoric Cloud</span>
                     <button onclick="clearHistory()" class="text-[0.65rem] font-bold text-red-500 hover:text-red-600 uppercase transition-colors">Șterge tot</button>
                 </div>
                 <div id="history-box" class="flex-1 overflow-y-auto px-4 pb-4 space-y-2 no-scrollbar">
@@ -229,16 +239,13 @@
                     </div>
                 </div>
             </div>
-
         </aside>
     </main>
 
     <div id="player-bar" class="absolute bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-3xl bg-white/95 backdrop-blur-3xl border border-slate-200 rounded-[2rem] p-3 md:p-4 flex items-center gap-3 md:gap-5 shadow-[0_20px_50px_rgba(0,0,0,0.15)] translate-y-40 transition-transform duration-500 z-50">
-        
         <button id="player-play-btn" class="w-12 h-12 md:w-14 md:h-14 shrink-0 rounded-full bg-slate-900 text-white flex items-center justify-center text-lg shadow-lg hover:scale-105 hover:bg-viralio-600 transition-all">
             <i class="fa-solid fa-play ml-1"></i>
         </button>
-        
         <div class="flex-1 overflow-hidden px-1 md:px-2 flex flex-col justify-center">
             <div class="flex items-end justify-between mb-1.5 md:mb-2">
                 <span class="text-xs md:text-sm font-black text-slate-900 truncate pr-4" id="nowPlayingText">Audio Generat</span>
@@ -249,7 +256,6 @@
                     <div class="eq-bar" style="animation-delay: 0.4s"></div>
                 </div>
             </div>
-            
             <div class="flex items-center gap-3 w-full">
                 <span id="time-current" class="text-[0.65rem] font-bold text-slate-400 w-8 text-right font-mono">0:00</span>
                 <div class="flex-1 h-2 bg-slate-100 rounded-full cursor-pointer relative group" id="track-bg" onclick="seekTrack(event)">
@@ -258,7 +264,6 @@
                 <span id="time-total" class="text-[0.65rem] font-bold text-slate-400 w-8 font-mono">0:00</span>
             </div>
         </div>
-        
         <div class="flex items-center gap-2 shrink-0 border-l border-slate-100 pl-3 md:pl-4">
             <a id="download-btn" href="#" download="viralio_voice.mp3" class="w-10 h-10 md:w-12 md:h-12 rounded-[1rem] bg-indigo-50 border border-indigo-100 flex items-center justify-center text-viralio-600 hover:bg-viralio-600 hover:text-white transition-all shadow-sm" title="Descarcă MP3">
                 <i class="fa-solid fa-download"></i>
@@ -268,10 +273,10 @@
             </button>
         </div>
     </div>
+</div> 
 
-</div> <audio id="core-audio" class="hidden"></audio>
-
-<script>
+<audio id="core-audio" class="hidden"></audio>
+<audio id="preview-audio" class="hidden"></audio> <script>
     // --- 1. AUTH LOGIC ---
     function setToken(token) { document.cookie = "viralio_token=" + token + "; domain=.viralio.ro; path=/; max-age=604800; Secure; SameSite=Lax"; }
     function getToken() { const match = document.cookie.match(/(?:^|; )viralio_token=([^;]*)/); return match ? match[1] : null; }
@@ -288,7 +293,6 @@
         } catch (e) { alert('Eroare conexiune server.'); }
     }
 
-    // Variabila globala pentru a sti exact cate caractere are userul
     let currentVoiceCharacters = 0;
 
     function updateUI(user) {
@@ -299,11 +303,9 @@
         document.getElementById('nav-name').innerText = user.name.split(' ')[0];
         document.getElementById('nav-avatar').src = user.picture;
         
-        // CARACTERE VOCE
         currentVoiceCharacters = user.voice_characters || 0;
         document.getElementById('nav-chars').innerText = currentVoiceCharacters.toLocaleString('ro-RO');
         
-        // Dupa ce se incarca userul, verificam daca textul depaseste fondurile
         checkFunds();
     }
 
@@ -312,6 +314,7 @@
     window.onload = async () => {
         updateSlider('stab'); 
         updateSlider('sim');
+        updateSlider('speed');
         renderHistory();
         
         const token = getToken();
@@ -343,18 +346,57 @@
         }
     }
 
-    // --- 3. SLIDERS LOGIC ---
+// --- 3. SLIDERS LOGIC ---
     function updateSlider(id) {
-        const val = document.getElementById(`param-${id}`).value;
-        document.getElementById(`${id}-val`).innerText = val + '%';
-        document.getElementById(`prog-${id}`).style.width = val + '%';
+        const val = parseFloat(document.getElementById(`param-${id}`).value);
+        const prog = document.getElementById(`prog-${id}`);
+        const display = document.getElementById(`${id}-val`);
+
+        if (id === 'speed') {
+            // Am modificat aici in toFixed(2) pentru a arata suta
+            display.innerText = val.toFixed(2) + 'x';
+            const percent = ((val - 0.7) / (1.2 - 0.7)) * 100;
+            prog.style.width = percent + '%';
+        } else {
+            display.innerText = val + '%';
+            prog.style.width = val + '%';
+        }
     }
 
-    // --- 4. VOCILE PE CATEGORII ---
+    // --- 4. VOCILE PE CATEGORII (ACTUALIZAT COMPLET) ---
     const voiceCategories = {
-        "Voci Masculine (Povești/Viral)": ["Paul", "Drew", "Clyde", "Dave", "Roger", "Fin", "James", "Bradford", "Reginald", "Austin", "Mark", "Grimblewood"],
-        "Voci Feminine (Povești/Viral)": ["Rachel", "Aria", "Domi", "Sarah", "Jane", "Juniper", "Arabella", "Hope", "Blondie", "Priyanka", "Alexandra", "Monika"],
-        "Personaje Speciale": ["Gaming", "Kuon"]
+        "Voci Masculine (Povești/Viral)": [
+            {name: "Paul", personality: "Documentar, Jurnalistic", preview: "/assets/previews/paul.mp3"},
+            {name: "Drew", personality: "Tânăr, Știri, Prietenos", preview: "/assets/previews/drew.mp3"},
+            {name: "Clyde", personality: "Profund, Dramatic", preview: "/assets/previews/clyde.mp3"},
+            {name: "Dave", personality: "Casual, Conversație", preview: "/assets/previews/dave.mp3"},
+            {name: "Roger", personality: "Matur, Autoritar", preview: "/assets/previews/roger.mp3"},
+            {name: "Fin", personality: "Energic, Vlog", preview: "/assets/previews/fin.mp3"},
+            {name: "James", personality: "Calm, Podcast", preview: "/assets/previews/james.mp3"},
+            {name: "Bradford", personality: "Bătrân, Înțelept", preview: "/assets/previews/bradford.mp3"},
+            {name: "Reginald", personality: "Tradițional", preview: "/assets/previews/reginald.mp3"},
+            {name: "Austin", personality: "Modern, Chill", preview: "/assets/previews/austin.mp3"},
+            {name: "Mark", personality: "Serios, Afaceri", preview: "/assets/previews/mark.mp3"},
+            {name: "Grimblewood", personality: "Fantezie, Narator", preview: "/assets/previews/grimblewood.mp3"}
+        ],
+        "Voci Feminine (Povești/Viral)": [
+            {name: "Rachel", personality: "Eleganta, Clara", preview: "/assets/previews/rachel.mp3"},
+            {name: "Aria", personality: "Tânăra, Dinamică", preview: "/assets/previews/aria.mp3"},
+            {name: "Domi", personality: "Matură, ASMR", preview: "/assets/previews/domi.mp3"},
+            {name: "Sarah", personality: "Prietenos, Comercial", preview: "/assets/previews/sarah.mp3"},
+            {name: "Jane", personality: "Calmă, Educațional", preview: "/assets/previews/jane.mp3"},
+            {name: "Juniper", personality: "Exuberantă, Vlog", preview: "/assets/previews/juniper.mp3"},
+            {name: "Arabella", personality: "Artistică, Povești", preview: "/assets/previews/arabella.mp3"},
+            {name: "Hope", personality: "Inocență, Caldă", preview: "/assets/previews/hope.mp3"},
+            {name: "Blondie", personality: "Casual, Social Media", preview: "/assets/previews/blondie.mp3"},
+            {name: "Priyanka", personality: "Clară, Știri", preview: "/assets/previews/priyanka.mp3"},
+            {name: "Alexandra", personality: "Serioasă, Documentar", preview: "/assets/previews/alexandra.mp3"},
+            {name: "Monika", personality: "Tânără, Relaxată", preview: "/assets/previews/monika.mp3"}
+        ],
+        "Personaje Speciale": [
+            {name: "Gaming", personality: "Epic, Trailer Video", preview: "/assets/previews/gaming.mp3"},
+            {name: "Kuon", personality: "Misterios, Închis", preview: "/assets/previews/kuon.mp3"}
+        ]
     };
     
     let activeVoice = "Paul";
@@ -363,25 +405,63 @@
 
     Object.keys(voiceCategories).forEach(category => {
         const header = document.createElement('div');
-        header.className = "px-3 py-2 bg-slate-50 text-[0.65rem] font-bold text-slate-400 uppercase tracking-wider sticky top-0 z-10 border-y border-slate-100 first:border-t-0 shadow-[0_2px_5px_rgba(0,0,0,0.02)]";
+        header.className = "px-3 py-2 bg-slate-50 text-[0.65rem] font-bold text-slate-400 uppercase tracking-wider sticky top-0 z-10 border-y border-slate-100 shadow-[0_2px_5px_rgba(0,0,0,0.02)]";
         header.innerText = category;
         listEl.appendChild(header);
 
-        voiceCategories[category].forEach(voice => {
+        voiceCategories[category].forEach(voiceObj => {
             const div = document.createElement('div');
-            div.className = `voice-option px-4 py-2.5 flex items-center gap-3 cursor-pointer text-sm font-bold transition-colors ${voice === 'Paul' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-slate-50'}`;
-            div.onclick = () => selectVoice(voice, badgeMap[category], div);
+            div.className = `voice-option px-4 py-2.5 flex items-center justify-between cursor-pointer transition-colors ${voiceObj.name === 'Paul' ? 'bg-indigo-50 border-l-2 border-indigo-500' : 'bg-white border-l-2 border-transparent hover:bg-slate-50'}`;
             
             const colors = ['bg-slate-900', 'bg-pink-500', 'bg-emerald-500', 'bg-amber-500', 'bg-indigo-500'];
-            const color = colors[voice.length % colors.length];
+            const color = colors[voiceObj.name.length % colors.length];
 
             div.innerHTML = `
-                <div class="w-7 h-7 rounded-full ${color} text-white flex items-center justify-center text-[0.6rem] shrink-0 shadow-sm">${voice.substring(0,2).toUpperCase()}</div>
-                <span>${voice}</span>
+                <div class="flex items-center gap-3 flex-1" onclick="selectVoice('${voiceObj.name}', '${badgeMap[category]}, ${voiceObj.personality}', this)">
+                    <div class="w-8 h-8 rounded-full ${color} text-white flex items-center justify-center text-[0.65rem] font-bold shrink-0 shadow-sm">${voiceObj.name.substring(0,2).toUpperCase()}</div>
+                    <div class="text-left">
+                        <span class="text-sm font-bold text-slate-800 block leading-tight">${voiceObj.name}</span>
+                        <span class="text-[0.6rem] font-medium text-slate-400">${voiceObj.personality}</span>
+                    </div>
+                </div>
+                <button onclick="playPreview(event, '${voiceObj.preview}', this)" class="preview-btn w-8 h-8 rounded-full border border-slate-200 text-slate-400 flex items-center justify-center shrink-0 shadow-sm bg-white">
+                    <i class="fa-solid fa-play text-xs ml-0.5"></i>
+                </button>
             `;
             listEl.appendChild(div);
         });
     });
+
+    const previewAudioPlayer = document.getElementById('preview-audio');
+    let currentPreviewButton = null;
+
+    function playPreview(event, url, btn) {
+        event.stopPropagation();
+
+        if (currentPreviewButton === btn && !previewAudioPlayer.paused) {
+            previewAudioPlayer.pause();
+            btn.innerHTML = '<i class="fa-solid fa-play text-xs ml-0.5"></i>';
+            btn.classList.remove('bg-indigo-100', 'text-indigo-600', 'border-indigo-300');
+            return;
+        }
+
+        document.querySelectorAll('.preview-btn').forEach(b => {
+            b.innerHTML = '<i class="fa-solid fa-play text-xs ml-0.5"></i>';
+            b.classList.remove('bg-indigo-100', 'text-indigo-600', 'border-indigo-300');
+        });
+
+        previewAudioPlayer.src = url;
+        previewAudioPlayer.play();
+        
+        btn.innerHTML = '<i class="fa-solid fa-pause text-xs"></i>';
+        btn.classList.add('bg-indigo-100', 'text-indigo-600', 'border-indigo-300');
+        currentPreviewButton = btn;
+
+        previewAudioPlayer.onended = () => {
+            btn.innerHTML = '<i class="fa-solid fa-play text-xs ml-0.5"></i>';
+            btn.classList.remove('bg-indigo-100', 'text-indigo-600', 'border-indigo-300');
+        };
+    }
 
     function toggleVoiceDropdown() { document.getElementById('voice-dropdown').classList.toggle('show'); }
 
@@ -394,9 +474,9 @@
         const colors = ['bg-slate-900', 'bg-pink-500', 'bg-emerald-500', 'bg-amber-500', 'bg-indigo-500'];
         document.getElementById('active-voice-avatar').className = `w-8 h-8 rounded-full ${colors[voice.length % colors.length]} flex items-center justify-center text-xs font-bold text-white shadow-sm`;
 
-        document.querySelectorAll('.voice-option').forEach(el => { el.classList.remove('bg-indigo-50', 'text-indigo-600'); el.classList.add('text-slate-700'); });
-        element.classList.add('bg-indigo-50', 'text-indigo-600');
-        element.classList.remove('text-slate-700');
+        document.querySelectorAll('.voice-option').forEach(el => { el.classList.remove('bg-indigo-50', 'border-indigo-500'); el.classList.add('bg-white', 'border-transparent'); });
+        element.classList.add('bg-indigo-50', 'border-indigo-500');
+        element.classList.remove('bg-white', 'border-transparent');
         
         toggleVoiceDropdown();
     }
@@ -453,14 +533,18 @@
         btn.disabled = true;
 
         try {
+            if(!previewAudioPlayer.paused) previewAudioPlayer.pause();
+
             const res = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ 
                     text: text, 
                     voice: activeVoice,
-                    stability: document.getElementById('param-stab').value / 100,
-                    similarity_boost: document.getElementById('param-sim').value / 100
+                    stability: parseFloat(document.getElementById('param-stab').value) / 100,
+                    similarity_boost: parseFloat(document.getElementById('param-sim').value) / 100,
+                    // Parametrul adaugat! Puteai sa-l pui "speed" daca API-ul tau backend il preia corect
+                    speed: parseFloat(document.getElementById('param-speed').value)
                 })
             });
 
@@ -470,7 +554,6 @@
             launchPlayer(data.audioUrl, activeVoice, text);
             addToHistory(text, activeVoice, data.audioUrl);
 
-            // Scadere vizuala Live (Fara sa dea refresh paginii)
             currentVoiceCharacters = data.remaining_chars || (currentVoiceCharacters - cost);
             document.getElementById('nav-chars').innerText = currentVoiceCharacters.toLocaleString('ro-RO');
             checkFunds(); 
@@ -512,10 +595,7 @@
 
     document.getElementById('player-play-btn').onclick = () => audio.paused ? audio.play() : audio.pause();
     
-    audio.onloadedmetadata = () => {
-        document.getElementById('time-total').innerText = formatTime(audio.duration);
-    };
-
+    audio.onloadedmetadata = () => { document.getElementById('time-total').innerText = formatTime(audio.duration); };
     audio.onplay = () => { playBtnIcon.className = "fa-solid fa-pause"; eqContainer.classList.add('playing'); };
     audio.onpause = () => { playBtnIcon.className = "fa-solid fa-play ml-1"; eqContainer.classList.remove('playing'); };
     audio.onended = () => { playBtnIcon.className = "fa-solid fa-play ml-1"; eqContainer.classList.remove('playing'); trackFill.style.width = '0%'; document.getElementById('time-current').innerText = "0:00"; };
@@ -532,7 +612,7 @@
         audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
     }
 
-    // --- 8. ISTORIC (Gratuit) ---
+    // --- 8. ISTORIC ---
     function addToHistory(text, voice, url) {
         const box = document.getElementById('history-box');
         if(box.querySelector('#empty-history')) box.innerHTML = '';
@@ -563,7 +643,7 @@
                     <p class="text-xs font-bold text-slate-800 truncate">${h.text}...</p>
                     <p class="text-[0.65rem] font-bold text-slate-400 mt-0.5"><span class="text-indigo-500">${h.voice}</span> • ${h.time}</p>
                 </div>
-                <a href="${h.url}" download="viralio_voice.mp3" class="w-8 h-8 shrink-0 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-500 transition-all" title="Descarcă MP3 gratuit">
+                <a href="${h.url}" download="viralio_voice.mp3" class="w-8 h-8 shrink-0 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-500 transition-all" title="Descarcă MP3">
                     <i class="fa-solid fa-download text-xs"></i>
                 </a>
             `;
@@ -577,6 +657,4 @@
     }
 </script>
 </body>
-
 </html>
-
