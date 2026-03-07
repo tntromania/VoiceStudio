@@ -107,9 +107,12 @@ app.post('/api/generate', authenticate, async (req, res) => {
         const { text, voice, stability, similarity_boost, speed } = req.body;
         const user = await User.findById(req.userId);
 
-        if (!text) return res.status(400).json({ error: "Script text lipsă." });
+if (!text) return res.status(400).json({ error: "Script text lipsă." });
         
-        const cost = text.length;
+        // 🚨 NUMĂRĂTOARE CORECTĂ: Scoatem toate spațiile și enter-urile înainte să calculăm costul
+        const textWithoutSpaces = text.replace(/\s+/g, '');
+        const cost = textWithoutSpaces.length;
+
         if (user.voice_characters < cost) {
             return res.status(403).json({ error: `Fonduri insuficiente. Ai nevoie de ${cost} caractere.` });
         }
