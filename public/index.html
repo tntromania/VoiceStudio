@@ -528,16 +528,23 @@
         }
     });
 
-    // --- 5. EDITOR & CREDITE ---
+// --- 5. EDITOR & CREDITE ---
     const textInput = document.getElementById('script-input');
     
+    // Funcție unificată pentru a număra DOAR literele, cifrele și semnele de punctuație de bază
+    // Ignoră complet spațiile (\s) și enter-urile
+    function getRealCharCount(text) {
+        const textWithoutSpaces = text.replace(/\s+/g, '');
+        return textWithoutSpaces.length;
+    }
+
     function checkFunds() {
         if(!textInput) return;
-        const textLen = textInput.value.length;
+        const realCost = getRealCharCount(textInput.value);
         const costContainer = document.getElementById('cost-container');
         if(!costContainer) return;
         
-        if(getToken() && textLen > currentVoiceCharacters) {
+        if(getToken() && realCost > currentVoiceCharacters) {
             costContainer.classList.replace('text-amber-500', 'text-red-500');
         } else {
             costContainer.classList.replace('text-red-500', 'text-amber-500');
@@ -547,13 +554,17 @@
     if(textInput) {
         textInput.addEventListener('input', () => {
             let text = textInput.value;
+            // Păstrăm limita fizică a textarea-ului la 5000 caractere TOTALE (inclusiv spații) pentru a nu bloca API-ul
             if(text.length > 5000) { textInput.value = text.substring(0, 5000); text = textInput.value; }
             
-            document.getElementById('char-count').innerText = text.length;
-            document.getElementById('char-count').className = text.length > 4500 ? 'text-red-500 font-black' : 'text-viralio-600 font-black';
+            // Calculăm costul REAL (fără spații)
+            const realCost = getRealCharCount(text);
             
-            const cost = text.length;
-            document.getElementById('char-cost').innerText = cost.toLocaleString('ro-RO');
+            // Afișăm în UI
+            document.getElementById('char-count').innerText = realCost;
+            document.getElementById('char-count').className = realCost > 4500 ? 'text-red-500 font-black' : 'text-viralio-600 font-black';
+            
+            document.getElementById('char-cost').innerText = realCost.toLocaleString('ro-RO');
             checkFunds();
         });
     }
@@ -583,7 +594,7 @@
         const text = textInput.value.trim();
         if(!text) return alert("Scrie text pentru a genera vocea.");
         
-        const cost = text.length;
+        const cost = getRealCharCount(text);
         if(cost > currentVoiceCharacters) {
             alert(`Nu ai suficiente caractere! Ai nevoie de ${cost}, dar mai ai doar ${currentVoiceCharacters}.`);
             return;
