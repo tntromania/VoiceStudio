@@ -7,16 +7,14 @@ const https = require('https');
 const mongoose = require('mongoose');
 const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
+const Replicate = require('replicate');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configurare Google
+// Configurare Google & Replicate
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
-// AI33 Config
-const AI33_API_KEY = process.env.AI33_API_KEY; // Adaugă în .env: AI33_API_KEY=cheia_ta
-const AI33_BASE_URL = 'https://api.ai33.pro';
+const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN });
 
 // Foldere Stocare
 const DOWNLOAD_DIR = path.join(__dirname, 'public', 'downloads');
@@ -31,17 +29,19 @@ mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('✅ Voice AI conectat la MongoDB!'))
     .catch(err => console.error('❌ Eroare MongoDB:', err));
 
-// Schema User
+// Schema User (Fix ca la Captions + voice_characters)
+// 1. Schema unică, completă și identică pe toate aplicațiile
 const UserSchema = new mongoose.Schema({
     googleId: { type: String, required: true, unique: true },
     email: { type: String, required: true },
     name: String,
     picture: String,
-    credits: { type: Number, default: 10 },
-    voice_characters: { type: Number, default: 3000 },
+    credits: { type: Number, default: 10 }, // Universal: 10 credite
+    voice_characters: { type: Number, default: 3000 }, // Universal: 3000 caractere
     createdAt: { type: Date, default: Date.now }
 });
 
+// 2. Crearea modelului (Atenție la o eroare comună în Mongoose unde re-definirea aruncă eroare)
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
 
 // Middleware Autentificare
@@ -56,30 +56,30 @@ const authenticate = (req, res, next) => {
 };
 
 // ==========================================
-// RUTE AUTH
+// RUTE AUTH (FIX CA LA CAPTION)
 // ==========================================
 app.post('/api/auth/google', async (req, res) => {
     try {
         const ticket = await googleClient.verifyIdToken({ idToken: req.body.credential, audience: process.env.GOOGLE_CLIENT_ID });
         const payload = ticket.getPayload();
         let user = await User.findOne({ googleId: payload.sub });
-
-        if (!user) {
-            user = new User({
-                googleId: payload.sub,
-                email: payload.email,
-                name: payload.name,
-                picture: payload.picture,
-                credits: 10,
-                voice_characters: 3000
+        
+if (!user) {
+            user = new User({ 
+                googleId: payload.sub, 
+                email: payload.email, 
+                name: payload.name, 
+                picture: payload.picture, 
+                credits: 10,             // Sincronizat cu HUB
+                voice_characters: 3000   // Sincronizat cu HUB
             });
             await user.save();
         }
-
+        
         const sessionToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-        res.json({
-            token: sessionToken,
-            user: { name: user.name, picture: user.picture, credits: user.credits, voice_characters: user.voice_characters }
+        res.json({ 
+            token: sessionToken, 
+            user: { name: user.name, picture: user.picture, credits: user.credits, voice_characters: user.voice_characters } 
         });
     } catch (error) { res.status(400).json({ error: "Eroare Google" }); }
 });
@@ -90,116 +90,26 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
 });
 
 // ==========================================
-// HELPER: Mapare Nume Voce → voice_id ElevenLabs
-// ==========================================
-// Acestea sunt voice_id-urile din librăria ElevenLabs (compatibil cu AI33)
-// Poți înlocui cu ID-urile exacte din: GET https://api.ai33.pro/v2/voices
-const VOICE_ID_MAP = {
-    "Paul":       "nPczCjzI2devNBz1zQrb",
-    "Drew":       "29vD33N1CtxCmqQRPOHJ",
-    "Clyde":      "2EiwWnXFnvU5JabPnv8n",
-    "Dave":       "CYw3kZ02Hs0563khs1Fj",
-    "Roger":      "CwhRBWXzGAHq8TQ4Fs17",
-    "Fin":        "D38z5RcWu1voky8WS1ja",
-    "James":      "ZQe5CZNOzWyzPSCn5a3c",
-    "Bradford":   "EXAVITQu4vr4xnSDxMaL",
-    "Reginald":   "onwK4e9ZLuTAKqWW03F9",
-    "Austin":     "g5CIjZEefAph4nQFvHAz",
-    "Mark":       "UgBBYS2sOqTuMpoF3BR0",
-    "Grimblewood":"N2lVS1w4EtoT3dr4eOWO",
-    "Rachel":     "21m00Tcm4TlvDq8ikWAM",
-    "Aria":       "9BWtsMINqrJLrRacOk9x",
-    "Domi":       "AZnzlk1XvdvUeBnXmlld",
-    "Sarah":      "EXAVITQu4vr4xnSDxMaL",
-    "Jane":       "Xb7hH8MSUJpSbSDYk0k2",
-    "Juniper":    "zcAOhNBS3c14rBihAFp1",
-    "Arabella":   "jBpfuIE2acCO8z3wKNLl",
-    "Hope":       "ODq5zmih8GrVes37Dx9b",
-    "Blondie":    "XrExE9yKIg1WjnnlVkGX",
-    "Priyanka":   "c1Yh0AkPmCiEa4bBMJJU",
-    "Alexandra":  "ThT5KcBeYPX3keUQqHPh",
-    "Monika":     "TX3LPaxmHKxFdv7VOQHJ",
-    "Gaming":     "IKne3meq5aSn9XLyUdCD",
-    "Kuon":       "pMsXgVXv3BLzUgSXRplE"
-};
-
-// ==========================================
-// HELPER: Descărcare fișier audio
+// LOGICA GENERARE VOCE (REPARATA)
 // ==========================================
 function downloadAudio(url, dest) {
     return new Promise((resolve, reject) => {
         const file = fs.createWriteStream(dest);
         https.get(url, (response) => {
-            // Urmărire redirect dacă există
-            if (response.statusCode === 301 || response.statusCode === 302) {
-                file.close();
-                return downloadAudio(response.headers.location, dest).then(resolve).catch(reject);
-            }
             response.pipe(file);
             file.on('finish', () => { file.close(); resolve(); });
         }).on('error', (err) => { fs.unlink(dest, () => {}); reject(err); });
     });
 }
 
-// ==========================================
-// HELPER: Polling task AI33 până la finalizare
-// ==========================================
-async function pollTask(taskId, maxWait = 60000) {
-    const interval = 3000;
-    const maxAttempts = Math.floor(maxWait / interval);
-
-    for (let i = 0; i < maxAttempts; i++) {
-        await new Promise(r => setTimeout(r, interval));
-
-        let response;
-        try {
-            response = await fetch(`${AI33_BASE_URL}/v1/task/${taskId}`, {
-                headers: { 'xi-api-key': AI33_API_KEY },
-                signal: AbortSignal.timeout(10000)
-            });
-        } catch (fetchErr) {
-            console.warn(`⚠️ Polling fetch error attempt ${i+1}: ${fetchErr.message}`);
-            continue; // reincercam la urmatoarea iteratie
-        }
-
-        if (response.status === 503 || response.status === 502) {
-            console.warn(`⚠️ AI33 polling ${response.status}, attempt ${i+1}, reincercam...`);
-            continue;
-        }
-        if (!response.ok) throw new Error(`Polling eșuat: ${response.status}`);
-
-        const task = await response.json();
-
-        if (task.status === 'done') {
-            const audioUrl = task.metadata?.audio_url || task.output_uri || task.metadata?.output_uri;
-            if (!audioUrl) throw new Error("Task finalizat dar fără URL audio.");
-            return audioUrl;
-        }
-
-        if (task.status === 'error' || task.status === 'failed') {
-            throw new Error(task.error_message || "Eroare la generarea vocii în AI33.");
-        }
-
-        // status pending/processing — continuam
-    }
-
-    throw new Error("Timeout: generarea a durat prea mult (60s). Încearcă din nou.");
-}
-
-// ==========================================
-// RUTĂ GENERARE VOCE (AI33 - ElevenLabs TTS)
-// ==========================================
 app.post('/api/generate', authenticate, async (req, res) => {
     try {
         const { text, voice, stability, similarity_boost, speed } = req.body;
         const user = await User.findById(req.userId);
-		
-		console.log(`📝 [${new Date().toLocaleTimeString('ro-RO')}] ${user.name} (${user.email}) | chars: ${text?.length || 0} (fără spații: ${(text || '').replace(/\s+/g, '').length}) | voce: ${voice}`);
 
-
-        if (!text) return res.status(400).json({ error: "Script text lipsă." });
-
-        // Cost calculat fără spații (identic cu logica anterioară)
+if (!text) return res.status(400).json({ error: "Script text lipsă." });
+        
+        // 🚨 NUMĂRĂTOARE CORECTĂ: Scoatem toate spațiile și enter-urile înainte să calculăm costul
         const textWithoutSpaces = text.replace(/\s+/g, '');
         const cost = textWithoutSpaces.length;
 
@@ -207,94 +117,45 @@ app.post('/api/generate', authenticate, async (req, res) => {
             return res.status(403).json({ error: `Fonduri insuficiente. Ai nevoie de ${cost} caractere.` });
         }
 
-        // Determinăm voice_id — preferăm voiceId trimis direct din frontend
-        const voiceId = req.body.voiceId || VOICE_ID_MAP[voice] || VOICE_ID_MAP["Paul"];
-        const modelId = "eleven_multilingual_v2"; // sau eleven_turbo_v2_5 pentru viteză mai mare
+        console.log(`🎙️ Generare voce: ${voice} pentru ${user.name}`);
 
-        console.log(`🎙️ Generare voce AI33: ${voice} (${voiceId}) pentru ${user.name}`);
-
-        // Apel către AI33 TTS — cu timeout de 15s
-        let ai33Response;
-        try {
-            ai33Response = await fetch(
-                `${AI33_BASE_URL}/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'xi-api-key': AI33_API_KEY
-                    },
-                    body: JSON.stringify({
-                        text: text,
-                        model_id: modelId,
-                        voice_settings: {
-                            stability: parseFloat(stability) || 0.5,
-                            similarity_boost: parseFloat(similarity_boost) || 0.75,
-                            speed: parseFloat(speed) || 1.0
-                        },
-                        with_transcript: false
-                    }),
-                    signal: AbortSignal.timeout(15000)
+        const outputUrl = await replicate.run(
+            "elevenlabs/turbo-v2.5",
+            {
+                input: {
+                    prompt: text,
+                    voice: voice || "Paul",
+                    stability: parseFloat(stability) || 0.5,
+                    similarity_boost: parseFloat(similarity_boost) || 0.75,
+                    speed: parseFloat(speed) || 1.0
                 }
-            );
-        } catch (fetchErr) {
-            if (fetchErr.name === 'TimeoutError' || fetchErr.name === 'AbortError')
-                return res.status(503).json({ error: "AI33 nu răspunde (timeout). Încearcă din nou în câteva secunde." });
-            throw fetchErr;
-        }
-
-        if (!ai33Response.ok) {
-            const errBody = await ai33Response.text();
-            console.error("Eroare AI33:", ai33Response.status, errBody);
-
-            if (ai33Response.status === 429) {
-                return res.status(429).json({ error: "Sistemul este suprasolicitat. Te rugăm să aștepți câteva secunde între generări!" });
             }
-            if (ai33Response.status === 401) {
-                return res.status(500).json({ error: "Cheie API AI33 invalidă. Contactează administratorul." });
-            }
-            if (ai33Response.status === 503 || ai33Response.status === 502) {
-                return res.status(503).json({ error: "Serviciul de voce este momentan indisponibil (503). Încearcă din nou în câteva secunde." });
-            }
-            throw new Error(`AI33 a returnat eroare ${ai33Response.status}`);
-        }
+        );
 
-        const ai33Data = await ai33Response.json();
-
-        if (!ai33Data.success || !ai33Data.task_id) {
-            throw new Error("AI33 nu a returnat un task_id valid.");
-        }
-
-        console.log(`✅ Task AI33 creat: ${ai33Data.task_id}`);
-
-        // Așteptăm finalizarea task-ului (polling)
-        const outputUrl = await pollTask(ai33Data.task_id);
-
-        // Descărcăm fișierul audio pe server
         const fileName = `voice_${Date.now()}.mp3`;
         const filePath = path.join(DOWNLOAD_DIR, fileName);
+        
         await downloadAudio(outputUrl, filePath);
-
-        // Scădem caracterele și salvăm
+        
         user.voice_characters -= cost;
         await user.save();
 
         res.json({ audioUrl: `/downloads/${fileName}`, remaining_chars: user.voice_characters });
 
-    } catch (error) {
+} catch (error) {
         console.error("ERROR VOICE GEN:", error.message || error);
-
-        if (error.message && error.message.includes('429')) {
-            return res.status(429).json({ error: "Sistemul este suprasolicitat. Te rugăm să aștepți câteva secunde între generări!" });
+        
+        // Dacă eroarea vine de la limita impusă de Replicate (429 Too Many Requests)
+        if (error.response && error.response.status === 429 || error.status === 429 || (error.message && error.message.includes('429'))) {
+            return res.status(429).json({ error: "Sistemul este suprasolicitat. Te rugăm să aștepți 5 secunde între generări!" });
         }
 
-        res.status(500).json({ error: error.message || "Eroare tehnică la generarea vocii. Încearcă din nou." });
+        // Pentru orice altă eroare
+        res.status(500).json({ error: "Eroare tehnică la generarea vocii. Încearcă din nou." });
     }
 });
 
-// ==========================================
-// CURĂȚARE FIȘIERE VECHI (24h)
-// ==========================================
+// Curatare fisiere vechi (24h)
 setInterval(() => {
     fs.readdir(DOWNLOAD_DIR, (err, files) => {
         if (err) return;
@@ -309,4 +170,4 @@ setInterval(() => {
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Voice Studio (AI33) rulează pe portul ${PORT}!`));
+app.listen(PORT, () => console.log(`🚀 Voice Studio ruleaza pe ${PORT}!`));
