@@ -14,8 +14,8 @@ const PORT = process.env.PORT || 3000;
 // Configurare Google
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// AI33 Config
-const AI33_API_KEY = process.env.AI33_API_KEY; // Adaugă în .env: AI33_API_KEY=cheia_ta
+// Voice AI Config
+const AI33_API_KEY = process.env.AI33_API_KEY;
 const AI33_BASE_URL = 'https://api.ai33.pro';
 
 // Foldere Stocare
@@ -81,7 +81,7 @@ app.post('/api/auth/google', async (req, res) => {
             token: sessionToken,
             user: { name: user.name, picture: user.picture, credits: user.credits, voice_characters: user.voice_characters }
         });
-    } catch (error) { res.status(400).json({ error: "Eroare Google" }); }
+    } catch (error) { res.status(400).json({ error: "Eroare la autentificare. Încearcă din nou." }); }
 });
 
 app.get('/api/auth/me', authenticate, async (req, res) => {
@@ -90,10 +90,8 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
 });
 
 // ==========================================
-// HELPER: Mapare Nume Voce → voice_id ElevenLabs
+// HELPER: Mapare Nume Voce → voice_id
 // ==========================================
-// Acestea sunt voice_id-urile din librăria ElevenLabs (compatibil cu AI33)
-// Poți înlocui cu ID-urile exacte din: GET https://api.ai33.pro/v2/voices
 const VOICE_ID_MAP = {
     "Paul":       "nPczCjzI2devNBz1zQrb",
     "Drew":       "29vD33N1CtxCmqQRPOHJ",
@@ -130,7 +128,6 @@ function downloadAudio(url, dest) {
     return new Promise((resolve, reject) => {
         const file = fs.createWriteStream(dest);
         https.get(url, (response) => {
-            // Urmărire redirect dacă există
             if (response.statusCode === 301 || response.statusCode === 302) {
                 file.close();
                 return downloadAudio(response.headers.location, dest).then(resolve).catch(reject);
@@ -142,7 +139,7 @@ function downloadAudio(url, dest) {
 }
 
 // ==========================================
-// HELPER: Polling task AI33 până la finalizare
+// HELPER: Polling task până la finalizare
 // ==========================================
 async function pollTask(taskId, maxWait = 60000) {
     const interval = 3000;
@@ -158,65 +155,59 @@ async function pollTask(taskId, maxWait = 60000) {
                 signal: AbortSignal.timeout(10000)
             });
         } catch (fetchErr) {
-            console.warn(`⚠️ Polling fetch error attempt ${i+1}: ${fetchErr.message}`);
-            continue; // reincercam la urmatoarea iteratie
+            console.warn(`⚠️ Polling eroare attempt ${i+1}: ${fetchErr.message}`);
+            continue;
         }
 
         if (response.status === 503 || response.status === 502) {
-            console.warn(`⚠️ AI33 polling ${response.status}, attempt ${i+1}, reincercam...`);
+            console.warn(`⚠️ Server vocal ${response.status}, attempt ${i+1}, reîncercăm...`);
             continue;
         }
-        if (!response.ok) throw new Error(`Polling eșuat: ${response.status}`);
+        if (!response.ok) throw new Error(`Eroare internă server: ${response.status}`);
 
         const task = await response.json();
 
         if (task.status === 'done') {
             const audioUrl = task.metadata?.audio_url || task.output_uri || task.metadata?.output_uri;
-            if (!audioUrl) throw new Error("Task finalizat dar fără URL audio.");
+            if (!audioUrl) throw new Error("Generarea a fost finalizată dar fișierul audio nu este disponibil.");
             return audioUrl;
         }
 
         if (task.status === 'error' || task.status === 'failed') {
-            throw new Error(task.error_message || "Eroare la generarea vocii în AI33.");
+            throw new Error("Eroare la procesarea vocii. Încearcă din nou.");
         }
-
-        // status pending/processing — continuam
     }
 
-    throw new Error("Timeout: generarea a durat prea mult (60s). Încearcă din nou.");
+    throw new Error("Generarea a durat prea mult. Încearcă din nou în câteva secunde.");
 }
 
 // ==========================================
-// RUTĂ GENERARE VOCE (AI33 - ElevenLabs TTS)
+// RUTĂ GENERARE VOCE
 // ==========================================
 app.post('/api/generate', authenticate, async (req, res) => {
     try {
         const { text, voice, stability, similarity_boost, speed } = req.body;
         const user = await User.findById(req.userId);
-		
-		console.log(`📝 [${new Date().toLocaleTimeString('ro-RO')}] ${user.name} (${user.email}) | chars: ${text?.length || 0} (fără spații: ${(text || '').replace(/\s+/g, '').length}) | voce: ${voice}`);
 
+        console.log(`📝 [${new Date().toLocaleTimeString('ro-RO')}] ${user.name} (${user.email}) | chars: ${text?.length || 0} (fără spații: ${(text || '').replace(/\s+/g, '').length}) | voce: ${voice}`);
 
-        if (!text) return res.status(400).json({ error: "Script text lipsă." });
+        if (!text) return res.status(400).json({ error: "Textul lipsește." });
 
-        // Cost calculat fără spații (identic cu logica anterioară)
         const textWithoutSpaces = text.replace(/\s+/g, '');
         const cost = textWithoutSpaces.length;
 
         if (user.voice_characters < cost) {
-            return res.status(403).json({ error: `Fonduri insuficiente. Ai nevoie de ${cost} caractere.` });
+            return res.status(403).json({ error: `Caractere insuficiente. Ai nevoie de ${cost} caractere.` });
         }
 
-        // Determinăm voice_id — preferăm voiceId trimis direct din frontend
         const voiceId = req.body.voiceId || VOICE_ID_MAP[voice] || VOICE_ID_MAP["Paul"];
-        const modelId = "eleven_multilingual_v2"; // sau eleven_turbo_v2_5 pentru viteză mai mare
+        const modelId = "eleven_multilingual_v2";
 
-        console.log(`🎙️ Generare voce AI33: ${voice} (${voiceId}) pentru ${user.name}`);
+        console.log(`🎙️ Generare voce: ${voice} (${voiceId}) pentru ${user.name}`);
 
-        // Apel către AI33 TTS — cu timeout de 15s
-        let ai33Response;
+        let voiceResponse;
         try {
-            ai33Response = await fetch(
+            voiceResponse = await fetch(
                 `${AI33_BASE_URL}/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
                 {
                     method: 'POST',
@@ -239,43 +230,40 @@ app.post('/api/generate', authenticate, async (req, res) => {
             );
         } catch (fetchErr) {
             if (fetchErr.name === 'TimeoutError' || fetchErr.name === 'AbortError')
-                return res.status(503).json({ error: "Serverul nu răspunde (timeout). Încearcă din nou în câteva secunde." });
+                return res.status(503).json({ error: "Serverul nu răspunde momentan. Încearcă din nou în câteva secunde." });
             throw fetchErr;
         }
 
-        if (!ai33Response.ok) {
-            const errBody = await ai33Response.text();
-            console.error("Eroare AI33:", ai33Response.status, errBody);
+        if (!voiceResponse.ok) {
+            const errBody = await voiceResponse.text();
+            console.error("Eroare server vocal:", voiceResponse.status, errBody);
 
-            if (ai33Response.status === 429) {
-                return res.status(429).json({ error: "Sistemul este suprasolicitat. Te rugăm să aștepți câteva secunde între generări!" });
+            if (voiceResponse.status === 429) {
+                return res.status(429).json({ error: "Serverul este suprasolicitat momentan. Așteaptă 5-10 secunde și încearcă din nou!" });
             }
-            if (ai33Response.status === 401) {
-                return res.status(500).json({ error: "Cheie API AI33 invalidă. Contactează administratorul." });
+            if (voiceResponse.status === 401) {
+                return res.status(500).json({ error: "Eroare internă de configurare. Contactează suportul." });
             }
-            if (ai33Response.status === 503 || ai33Response.status === 502) {
-                return res.status(503).json({ error: "Serviciul de voce este momentan indisponibil (503). Încearcă din nou în câteva secunde." });
+            if (voiceResponse.status === 503 || voiceResponse.status === 502) {
+                return res.status(503).json({ error: "Serverul vocal este în mentenanță. Revino în câteva minute!" });
             }
-            throw new Error(`AI33 a returnat eroare ${ai33Response.status}`);
+            throw new Error(`Eroare internă la procesarea vocii (${voiceResponse.status})`);
         }
 
-        const ai33Data = await ai33Response.json();
+        const responseData = await voiceResponse.json();
 
-        if (!ai33Data.success || !ai33Data.task_id) {
-            throw new Error("AI33 nu a returnat un task_id valid.");
+        if (!responseData.success || !responseData.task_id) {
+            throw new Error("Eroare internă la inițializarea generării.");
         }
 
-        console.log(`✅ Task AI33 creat: ${ai33Data.task_id}`);
+        console.log(`✅ Task creat: ${responseData.task_id}`);
 
-        // Așteptăm finalizarea task-ului (polling)
-        const outputUrl = await pollTask(ai33Data.task_id);
+        const outputUrl = await pollTask(responseData.task_id);
 
-        // Descărcăm fișierul audio pe server
         const fileName = `voice_${Date.now()}.mp3`;
         const filePath = path.join(DOWNLOAD_DIR, fileName);
         await downloadAudio(outputUrl, filePath);
 
-        // Scădem caracterele și salvăm
         user.voice_characters -= cost;
         await user.save();
 
@@ -285,7 +273,7 @@ app.post('/api/generate', authenticate, async (req, res) => {
         console.error("ERROR VOICE GEN:", error.message || error);
 
         if (error.message && error.message.includes('429')) {
-            return res.status(429).json({ error: "Sistemul este suprasolicitat. Te rugăm să aștepți câteva secunde între generări!" });
+            return res.status(429).json({ error: "Serverul este suprasolicitat momentan. Așteaptă 5-10 secunde și încearcă din nou!" });
         }
 
         res.status(500).json({ error: error.message || "Eroare tehnică la generarea vocii. Încearcă din nou." });
@@ -309,4 +297,4 @@ setInterval(() => {
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-app.listen(PORT, () => console.log(`🚀 Voice Studio (AI33) rulează pe portul ${PORT}!`));
+app.listen(PORT, () => console.log(`🚀 Voice Studio rulează pe portul ${PORT}!`));
