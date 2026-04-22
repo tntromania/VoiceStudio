@@ -520,10 +520,11 @@ function logout(){ removeToken(); location.reload(); }
 window.onload = async()=>{
     updateSlider('stab'); updateSlider('sim'); updateSlider('speed');
     updateSliderMM('mm-speed'); updateSliderMM('mm-pitch'); updateSliderMM('mm-vol');
-    updateStatusDots();
     renderHistory();
-    // update voice count badge
     document.getElementById('vm-result-count').innerText = ALL_VOICES.length;
+    // Fetch status server la intrare — arată popup dacă e down
+    await fetchServerStatus(true);
+    startStatusPolling();
     const token=getToken();
     if(token){
         try{
@@ -554,45 +555,100 @@ function switchTab(tab){
 }
 
 // ══════════════════════════════════════════════════════════════
-//  2b. STATUS DOTS (per provider, verde/rosu)
+//  2b. STATUS DOTS — partajat pe server, valabil pentru TOȚI userii
 // ══════════════════════════════════════════════════════════════
-const providerStatus = { elevenlabs: [], minimax: [] };
+const STATUS_COLOR = { ok: '#22c55e', unstable: '#f59e0b', down: '#ef4444' };
+const STATUS_LABEL = { ok: 'Funcțional', unstable: 'Instabil', down: 'Nefuncțional' };
+let serverStatus = { elevenlabs: 'ok', minimax: 'ok' };
+let statusPolling = null;
 
-function logApiCall(success){
-    const log = providerStatus[activeProvider];
-    log.push(success);
-    if(log.length > 6) log.shift();
-    updateStatusDots();
+async function fetchServerStatus(showPopupIfDown = false){
+    try{
+        const r = await fetch('/api/provider-status');
+        if(!r.ok) return;
+        const data = await r.json();
+        serverStatus = data;
+        applyStatusDots();
+        if(showPopupIfDown) checkAndShowDownPopup();
+    } catch(e){ console.warn('[Viralio] Nu pot citi statusul serverului:', e.message); }
 }
 
-function updateStatusDots(){
+function applyStatusDots(){
     ['elevenlabs','minimax'].forEach(p => {
         const dot = document.getElementById(p==='elevenlabs' ? 'dot-el' : 'dot-mm');
         if(!dot) return;
-        const log = providerStatus[p];
-        // Fara date = galben (Instabil - necunoscut)
-        if(!log.length){
-            dot.style.background='#22c55e';
-            dot.title='Functional';
-            return;
-        }
-        const lastThree = log.slice(-3);
-        const consecFails = lastThree.length>=2 && lastThree.slice(-2).every(v=>!v);
-        const anyError = lastThree.some(v=>!v);
-        if(consecFails){
-            // 2+ erori consecutive = Nefunctional
-            dot.style.background='#ef4444';
-            dot.title='Nefunctional';
-        } else if(anyError){
-            // 1 eroare izolata = Instabil
-            dot.style.background='#f59e0b';
-            dot.title='Instabil';
-        } else {
-            // Toate OK = Functional
-            dot.style.background='#22c55e';
-            dot.title='Functional';
-        }
+        const s = serverStatus[p] || 'ok';
+        dot.style.background = STATUS_COLOR[s];
+        dot.title = STATUS_LABEL[s];
     });
+}
+
+function checkAndShowDownPopup(){
+    // Dacă providerul activ e down, arată popup
+    const st = serverStatus[activeProvider];
+    if(st === 'down' || st === 'unstable'){
+        const other = activeProvider === 'elevenlabs' ? 'Minimax' : 'ElevenLabs';
+        const otherKey = activeProvider === 'elevenlabs' ? 'minimax' : 'elevenlabs';
+        const otherOk = serverStatus[otherKey] === 'ok';
+        showStatusPopup(activeProvider, st, otherKey, otherOk);
+    }
+}
+
+function showStatusPopup(provider, status, fallback, fallbackOk){
+    if(document.getElementById('status-popup')) return; // nu dubla
+    const provName = provider === 'elevenlabs' ? 'ElevenLabs' : 'Minimax';
+    const fallbackName = fallback === 'elevenlabs' ? 'ElevenLabs' : 'Minimax';
+    const isDown = status === 'down';
+    const popup = document.createElement('div');
+    popup.id = 'status-popup';
+    popup.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.65);backdrop-filter:blur(6px);z-index:999999;display:flex;align-items:center;justify-content:center;';
+    popup.innerHTML = `
+        <div style="background:#fff;border-radius:24px;padding:32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.2);text-align:center;">
+            <div style="width:56px;height:56px;border-radius:16px;background:${isDown?'#fef2f2':'#fffbeb'};display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px;">
+                ${isDown ? '🔴' : '🟡'}
+            </div>
+            <h2 style="font-size:18px;font-weight:900;color:#0f172a;margin-bottom:8px;">
+                ${provName} este momentan ${isDown ? 'nefuncțional' : 'instabil'}
+            </h2>
+            <p style="font-size:13px;color:#64748b;margin-bottom:24px;line-height:1.6;">
+                ${isDown
+                    ? `Serverul ${provName} nu răspunde. Îți recomandăm să schimbi la ${fallbackOk ? fallbackName : 'alt provider'} pentru a putea genera audio.`
+                    : `${provName} are erori intermitente. Poți continua, dar s-ar putea să apară probleme.`
+                }
+            </p>
+            <div style="display:flex;gap:10px;justify-content:center;">
+                ${fallbackOk ? `<button onclick="switchProvider('${fallback}');closeStatusPopup()" style="flex:1;padding:12px;background:#0f172a;color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:800;cursor:pointer;">
+                    Treci la ${fallbackName}
+                </button>` : ''}
+                <button onclick="closeStatusPopup()" style="flex:1;padding:12px;background:#f1f5f9;color:#334155;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;">
+                    Continuă oricum
+                </button>
+            </div>
+        </div>`;
+    document.body.appendChild(popup);
+}
+
+function closeStatusPopup(){
+    const p = document.getElementById('status-popup');
+    if(p) p.remove();
+}
+
+async function logApiCall(success){
+    // Raportează la server (partajat pentru toți userii)
+    try{
+        await fetch('/api/provider-status/report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ provider: activeProvider, success })
+        });
+    } catch(e){}
+    // Actualizează dots local imediat, apoi fetch complet
+    fetchServerStatus();
+}
+
+function startStatusPolling(){
+    if(statusPolling) return;
+    statusPolling = setInterval(() => fetchServerStatus(false), 30000); // la 30s
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -905,7 +961,7 @@ async function processAudio(){
             });
         } catch(fetchErr) {
             clearTimeout(timeoutId);
-            logApiCall(false);
+            await logApiCall(false);
             const errMsg = fetchErr.name==='AbortError'
                 ? 'Timeout 90s — serverul nu a răspuns.'
                 : fetchErr.message;
@@ -919,7 +975,7 @@ async function processAudio(){
         } finally { clearTimeout(timeoutId); }
         data = await res.json();
         if(!res.ok){
-            logApiCall(false);
+            await logApiCall(false);
             const errMsg = data.error || `Eroare HTTP ${res.status}`;
             console.error('[Viralio] Eroare API:', res.status, errMsg, data);
             // Auto-switch la celalalt provider
@@ -929,7 +985,7 @@ async function processAudio(){
             showToast(`❌ ${errMsg} — am comutat la ${fallback.charAt(0).toUpperCase()+fallback.slice(1)}`);
             return;
         }
-        logApiCall(true);
+        await logApiCall(true);
         console.log(`[Viralio] ✅ Generat cu ${activeProvider} — ${data.audioUrl}`);
         launchPlayer(data.audioUrl, activeVoice, text);
         addToHistory(text, activeVoice, data.audioUrl);
@@ -938,7 +994,7 @@ async function processAudio(){
         if(nc) nc.innerText=currentVoiceCharacters.toLocaleString('ro-RO');
         checkFunds();
     } catch(e){
-        logApiCall(false);
+        await logApiCall(false);
         console.error('[Viralio] Eroare generare:', e.message, e);
         alert(e.message);
     } finally {
