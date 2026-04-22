@@ -562,14 +562,46 @@ const STATUS_LABEL = { ok: 'Funcțional', unstable: 'Instabil', down: 'Nefuncți
 let serverStatus = { elevenlabs: 'ok', minimax: 'ok' };
 let statusPolling = null;
 
+// Track ce popup-uri s-au arătat deja în această sesiune
+const popupShownFor = new Set();
+
 async function fetchServerStatus(showPopupIfDown = false){
     try{
         const r = await fetch('/api/provider-status');
         if(!r.ok) return;
         const data = await r.json();
+        const prevStatus = { ...serverStatus };
         serverStatus = data;
         applyStatusDots();
-        if(showPopupIfDown) checkAndShowDownPopup();
+
+        // Arată popup dacă:
+        // 1. E cerut explicit (la load) SAU
+        // 2. Status-ul s-a schimbat LIVE în down/unstable (fără refresh)
+        //    — dar doar o dată per provider per sesiune
+        ['elevenlabs','minimax'].forEach(p => {
+            const prev = prevStatus[p] || 'ok';
+            const curr = serverStatus[p] || 'ok';
+            const wentBad = prev === 'ok' && (curr === 'down' || curr === 'unstable');
+            const popupKey = p + '_' + curr;
+            const alreadyShown = popupShownFor.has(popupKey);
+
+            if(!alreadyShown && (wentBad || (showPopupIfDown && (curr==='down'||curr==='unstable')))){
+                // Arată popup doar dacă e pentru providerul activ
+                if(p === activeProvider){
+                    const otherKey = p === 'elevenlabs' ? 'minimax' : 'elevenlabs';
+                    const otherOk = serverStatus[otherKey] === 'ok';
+                    popupShownFor.add(popupKey);
+                    showStatusPopup(p, curr, otherKey, otherOk);
+                }
+            }
+
+            // Reset popup când revine la ok (ca să poată apărea din nou dacă cade iar)
+            if(curr === 'ok'){
+                popupShownFor.delete(p + '_down');
+                popupShownFor.delete(p + '_unstable');
+            }
+        });
+
     } catch(e){ console.warn('[Viralio] Nu pot citi statusul serverului:', e.message); }
 }
 
@@ -581,17 +613,6 @@ function applyStatusDots(){
         dot.style.background = STATUS_COLOR[s];
         dot.title = STATUS_LABEL[s];
     });
-}
-
-function checkAndShowDownPopup(){
-    // Dacă providerul activ e down, arată popup
-    const st = serverStatus[activeProvider];
-    if(st === 'down' || st === 'unstable'){
-        const other = activeProvider === 'elevenlabs' ? 'Minimax' : 'ElevenLabs';
-        const otherKey = activeProvider === 'elevenlabs' ? 'minimax' : 'elevenlabs';
-        const otherOk = serverStatus[otherKey] === 'ok';
-        showStatusPopup(activeProvider, st, otherKey, otherOk);
-    }
 }
 
 function showStatusPopup(provider, status, fallback, fallbackOk){
