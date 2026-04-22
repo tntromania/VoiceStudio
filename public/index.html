@@ -440,6 +440,7 @@
 
 <!-- Voice data (external file) -->
 <script src="/voices.js"></script>
+<script src="/minimax-voices.js"></script>
 
 <script>
 // ══════════════════════════════════════════════════════════════
@@ -479,8 +480,13 @@ function logout(){ removeToken(); location.reload(); }
 window.onload = async()=>{
     updateSlider('stab'); updateSlider('sim'); updateSlider('speed');
     renderHistory();
-    // update voice count badge
+    // Contoare voci
     document.getElementById('vm-result-count').innerText = ALL_VOICES.length;
+    // Setăm contorul Minimax dacă fișierul static e încărcat
+    if (typeof ALL_MINIMAX_VOICES !== 'undefined') {
+        const cnt = document.getElementById('mm-count');
+        if (cnt) cnt.textContent = ALL_MINIMAX_VOICES.length;
+    }
     const token=getToken();
     if(token){
         try{
@@ -574,6 +580,19 @@ function showToast(msg) {
 async function loadMinimaxVoices() {
     if (minimaxLoaded || minimaxLoading) return;
     minimaxLoading = true;
+
+    // Folosim vocile statice din minimax-voices.js (generate cu fetch-minimax-voices.js)
+    if (typeof ALL_MINIMAX_VOICES !== 'undefined' && ALL_MINIMAX_VOICES.length) {
+        minimaxVoices = ALL_MINIMAX_VOICES;
+        minimaxLoaded = true;
+        minimaxLoading = false;
+        const cnt = document.getElementById('mm-count');
+        if (cnt) cnt.textContent = minimaxVoices.length;
+        renderVoiceGrid();
+        return;
+    }
+
+    // Fallback: fetch dinamic de la server dacă fișierul static nu e disponibil
     const grid = document.getElementById('vm-grid');
     if (grid) grid.innerHTML = '<div class="vm-mm-loading"><div class="vm-mm-spinner"></div><span>Se încarcă vocile Minimax...</span></div>';
     try {
@@ -591,7 +610,7 @@ async function loadMinimaxVoices() {
         console.error('Minimax voices load error:', e);
         updateProviderStatus('minimax', 'unstable');
         const grid2 = document.getElementById('vm-grid');
-        if (grid2) grid2.innerHTML = '<div class="vm-mm-loading" style="color:#f87171"><i class="fa-solid fa-triangle-exclamation" style="font-size:1.5rem;margin-bottom:4px"></i><span>Nu s-au putut încărca vocile Minimax.</span></div>';
+        if (grid2) grid2.innerHTML = '<div class="vm-mm-loading" style="color:#f87171"><i class="fa-solid fa-triangle-exclamation" style="font-size:1.5rem;margin-bottom:4px"></i><span>Rulează: node fetch-minimax-voices.js</span></div>';
     } finally {
         minimaxLoading = false;
         if (minimaxLoaded) renderVoiceGrid();
@@ -678,22 +697,21 @@ function renderVoiceGrid(){
         if (!list.length) { grid.innerHTML=''; empty.style.display='flex'; return; }
         empty.style.display = 'none';
 
-        // Minimax accent → color mapping
-        const mmColors = { English:'#6366f1', Romanian:'#ec4899', French:'#f59e0b', Spanish:'#ef4444', German:'#64748b', Italian:'#84cc16', Portuguese:'#8b5cf6', Japanese:'#14b8a6', Korean:'#fb923c', Chinese:'#f97316', Arabic:'#a78bfa', Auto:'#10b981' };
+        // Minimax accent → color mapping (din minimax-voices.js sau fallback)
+        const mmColorFn = typeof mmColor === 'function' ? mmColor : (v => '#db2777');
+        const mmUseLabelsFn = typeof MINIMAX_USE_LABELS !== 'undefined' ? MINIMAX_USE_LABELS : {};
         grid.innerHTML = list.map((v,i) => {
-            const accent = v.tags.find(t => mmColors[t]) || 'Auto';
-            const col = mmColors[accent] || '#94a3b8';
+            const col = mmColorFn(v);
             const initials = v.name.replace(/[^A-Za-zÀ-ž ]/g,'').split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase() || v.name.substring(0,2).toUpperCase();
             const isActive = activeProvider==='minimax' && v.id===activeVoiceId;
             const genderLabel = v.gender==='female'?'Feminin':v.gender==='male'?'Masculin':'—';
             const genderClass = v.gender==='female'?'vm-g-f':v.gender==='male'?'vm-g-m':'vm-g-s';
+            const useLabel = mmUseLabelsFn[v.use] || '⚡ General';
             const safeUrl = (v.sampleAudio||'').replace(/'/g,"\\'");
             const safeName = v.name.replace(/'/g,"\\'");
-            const safeAccent = accent.replace(/'/g,"\\'");
             const delay = Math.min(i*0.015, 0.3);
-            const tagsDisplay = v.tags.slice(0,3).join(' · ');
             return `<div class="vm-card${isActive?' vm-card-active':''}" style="animation-delay:${delay}s"
-                         onclick="pickVoice('${safeName}','${v.id}','${tagsDisplay.replace(/'/g,"\\'")}','${v.gender}','minimax','${safeUrl}')">
+                         onclick="pickVoice('${safeName}','${v.id}','${v.style.replace(/'/g,"\\'")}','${v.gender}','minimax','${safeUrl}')">
                 <div class="vm-card-top">
                     <div class="vm-avatar" style="background:${col}">${initials}</div>
                     <div class="vm-card-info">
@@ -705,8 +723,8 @@ function renderVoiceGrid(){
                         <i class="fa-solid ${previewActiveId===v.id?'fa-pause':'fa-play'}" style="font-size:.6rem;margin-left:${previewActiveId===v.id?'0':'1px'}"></i>
                     </button>
                 </div>
-                <div class="vm-style">${tagsDisplay || accent}</div>
-                <div class="vm-use-pill" style="background:rgba(236,72,153,0.12);color:#db2777;border-color:rgba(236,72,153,0.25)">🎵 Minimax</div>
+                <div class="vm-style">${v.style}</div>
+                <div class="vm-use-pill">${useLabel}</div>
                 ${isActive?'<div class="vm-active-badge"><i class="fa-solid fa-check"></i> Activ</div>':''}
             </div>`;
         }).join('');
