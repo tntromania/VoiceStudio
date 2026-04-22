@@ -107,11 +107,7 @@
                     </div>
                     <button onclick="logout()" class="p-2 text-slate-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50"><i class="fa-solid fa-power-off"></i></button>
                 </div>
-                <!-- STATUS DOTS -->
-                <div class="hidden md:flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-full px-3 py-1.5 ml-2" id="status-indicator" title="Status server API">
-                    <div id="status-dot" class="w-2.5 h-2.5 rounded-full bg-slate-300 transition-colors duration-500"></div>
-                    <span id="status-label" class="text-[0.6rem] font-black text-slate-400 uppercase tracking-widest">N/A</span>
-                </div>
+
             </div>
         </nav>
     </div>
@@ -176,12 +172,16 @@
                 <!-- PROVIDER TOGGLE -->
                 <div class="flex bg-slate-100 rounded-xl p-1 gap-1 shrink-0">
                     <button id="prov-btn-el" onclick="switchProvider('elevenlabs')"
-                        class="flex-1 py-2 rounded-lg text-xs font-black transition-all bg-white text-slate-900 shadow-sm">
-                        <i class="fa-solid fa-bolt text-amber-400 mr-1"></i> ElevenLabs
+                        class="flex-1 py-2 px-3 rounded-lg text-xs font-black transition-all bg-white text-slate-900 shadow-sm flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-bolt text-amber-400"></i>
+                        ElevenLabs
+                        <span id="dot-el" class="w-2 h-2 rounded-full bg-slate-300 transition-colors duration-500 flex-shrink-0" title="Status ElevenLabs"></span>
                     </button>
                     <button id="prov-btn-mm" onclick="switchProvider('minimax')"
-                        class="flex-1 py-2 rounded-lg text-xs font-black transition-all text-slate-400">
-                        <i class="fa-solid fa-microchip text-purple-400 mr-1"></i> Minimax
+                        class="flex-1 py-2 px-3 rounded-lg text-xs font-black transition-all text-slate-400 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-microchip text-purple-400"></i>
+                        Minimax
+                        <span id="dot-mm" class="w-2 h-2 rounded-full bg-slate-300 transition-colors duration-500 flex-shrink-0" title="Status Minimax"></span>
                     </button>
                 </div>
 
@@ -520,7 +520,7 @@ function logout(){ removeToken(); location.reload(); }
 window.onload = async()=>{
     updateSlider('stab'); updateSlider('sim'); updateSlider('speed');
     updateSliderMM('mm-speed'); updateSliderMM('mm-pitch'); updateSliderMM('mm-vol');
-    updateStatusDot();
+    updateStatusDots();
     renderHistory();
     // update voice count badge
     document.getElementById('vm-result-count').innerText = ALL_VOICES.length;
@@ -554,30 +554,34 @@ function switchTab(tab){
 }
 
 // ══════════════════════════════════════════════════════════════
-//  2b. STATUS DOTS
+//  2b. STATUS DOTS (per provider, verde/rosu)
 // ══════════════════════════════════════════════════════════════
-const apiCallLog = []; // true=success, false=error
+const providerStatus = { elevenlabs: [], minimax: [] };
+
 function logApiCall(success){
-    apiCallLog.push(success);
-    if(apiCallLog.length>10) apiCallLog.shift();
-    updateStatusDot();
+    const log = providerStatus[activeProvider];
+    log.push(success);
+    if(log.length > 6) log.shift();
+    updateStatusDots();
 }
-function updateStatusDot(){
-    const dot=document.getElementById('status-dot');
-    const lbl=document.getElementById('status-label');
-    if(!dot||!lbl) return;
-    if(!apiCallLog.length){ dot.style.background='#94a3b8'; lbl.innerText='N/A'; return; }
-    const last5=apiCallLog.slice(-5);
-    const errors=last5.filter(v=>!v).length;
-    const lastThree=apiCallLog.slice(-3);
-    const consecErrors=lastThree.every(v=>!v);
-    if(consecErrors || errors>=3){
-        dot.style.background='#ef4444'; lbl.innerText='Erori'; lbl.style.color='#ef4444';
-    } else if(errors>=1){
-        dot.style.background='#f59e0b'; lbl.innerText='Instabil'; lbl.style.color='#f59e0b';
-    } else {
-        dot.style.background='#22c55e'; lbl.innerText='OK'; lbl.style.color='#22c55e';
-    }
+
+function updateStatusDots(){
+    ['elevenlabs','minimax'].forEach(p => {
+        const dot = document.getElementById(p==='elevenlabs' ? 'dot-el' : 'dot-mm');
+        if(!dot) return;
+        const log = providerStatus[p];
+        if(!log.length){ dot.style.background='#cbd5e1'; dot.title='Nu a fost testat'; return; }
+        const lastThree = log.slice(-3);
+        const hasErrors = lastThree.some(v=>!v);
+        const allFailed = lastThree.every(v=>!v);
+        if(allFailed){
+            dot.style.background='#ef4444'; dot.title='Erori consecutive';
+        } else if(hasErrors){
+            dot.style.background='#ef4444'; dot.title='Erori recente';
+        } else {
+            dot.style.background='#22c55e'; dot.title='Functional';
+        }
+    });
 }
 
 // ══════════════════════════════════════════════════════════════
