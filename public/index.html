@@ -879,7 +879,7 @@ async function processAudio(){
     if(btn){ btn.classList.add('is-generating'); btn.disabled=true; }
     try{
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 120000);
+        const timeoutId = setTimeout(() => controller.abort(), 90000);
         let res, data;
         const isMM = activeProvider === 'minimax';
         const body = isMM ? {
@@ -904,13 +904,33 @@ async function processAudio(){
                 signal: controller.signal
             });
         } catch(fetchErr) {
+            clearTimeout(timeoutId);
             logApiCall(false);
-            if(fetchErr.name === 'AbortError') throw new Error('Timeout — serverul nu a răspuns. Încearcă din nou.');
-            throw fetchErr;
+            const errMsg = fetchErr.name==='AbortError'
+                ? 'Timeout 90s — serverul nu a răspuns.'
+                : fetchErr.message;
+            console.error('[Viralio] Eroare fetch:', errMsg, fetchErr);
+            // Auto-switch la celalalt provider
+            const fallback = activeProvider==='elevenlabs' ? 'minimax' : 'elevenlabs';
+            console.warn(`[Viralio] Auto-switch la ${fallback}`);
+            switchProvider(fallback);
+            showToast(`❌ Eroare ${activeProvider==='minimax'?'ElevenLabs':'Minimax'} — am comutat automat la ${fallback.charAt(0).toUpperCase()+fallback.slice(1)}`);
+            return;
         } finally { clearTimeout(timeoutId); }
         data = await res.json();
-        if(!res.ok){ logApiCall(false); throw new Error(data.error||'Eroare la generare.'); }
+        if(!res.ok){
+            logApiCall(false);
+            const errMsg = data.error || `Eroare HTTP ${res.status}`;
+            console.error('[Viralio] Eroare API:', res.status, errMsg, data);
+            // Auto-switch la celalalt provider
+            const fallback = activeProvider==='elevenlabs' ? 'minimax' : 'elevenlabs';
+            console.warn(`[Viralio] Auto-switch la ${fallback}`);
+            switchProvider(fallback);
+            showToast(`❌ ${errMsg} — am comutat la ${fallback.charAt(0).toUpperCase()+fallback.slice(1)}`);
+            return;
+        }
         logApiCall(true);
+        console.log(`[Viralio] ✅ Generat cu ${activeProvider} — ${data.audioUrl}`);
         launchPlayer(data.audioUrl, activeVoice, text);
         addToHistory(text, activeVoice, data.audioUrl);
         currentVoiceCharacters=data.remaining_chars||(currentVoiceCharacters-cost);
@@ -918,10 +938,27 @@ async function processAudio(){
         if(nc) nc.innerText=currentVoiceCharacters.toLocaleString('ro-RO');
         checkFunds();
     } catch(e){
+        logApiCall(false);
+        console.error('[Viralio] Eroare generare:', e.message, e);
         alert(e.message);
     } finally {
         if(btn){ btn.classList.remove('is-generating'); btn.disabled=false; }
     }
+}
+
+// Toast notification simplu
+function showToast(msg){
+    let t=document.getElementById('viralio-toast');
+    if(!t){
+        t=document.createElement('div');
+        t.id='viralio-toast';
+        t.style.cssText='position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:10px 20px;border-radius:12px;font-size:13px;font-weight:700;z-index:999999;box-shadow:0 8px 24px rgba(0,0,0,0.2);transition:opacity 0.4s;pointer-events:none';
+        document.body.appendChild(t);
+    }
+    t.innerText=msg;
+    t.style.opacity='1';
+    clearTimeout(t._to);
+    t._to=setTimeout(()=>t.style.opacity='0', 4000);
 }
 
 // ══════════════════════════════════════════════════════════════
