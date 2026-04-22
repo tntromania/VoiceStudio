@@ -124,8 +124,7 @@ const VOICE_ID_MAP = {
 // ==========================================
 // HELPER: Generare cu Minimax (fallback)
 // ==========================================
-async function generateWithMinimax(text, voiceId, speed) {
-    // Dacă nu avem un voice_id Minimax explicit, folosim o voce default neutră
+async function generateWithMinimax(text, voiceId, speed, pitch, vol, language_boost) {
     const minimaxVoiceId = voiceId || '226893671006276'; // Graceful Lady (fallback default)
 
     const response = await fetch(`${AI33_BASE_URL}/v1m/task/text-to-speech`, {
@@ -139,14 +138,14 @@ async function generateWithMinimax(text, voiceId, speed) {
             model: 'speech-2.6-hd',
             voice_setting: {
                 voice_id: minimaxVoiceId,
-                vol: 1,
-                pitch: 0,
+                vol: parseFloat(vol) || 1.0,
+                pitch: parseInt(pitch) || 0,
                 speed: parseFloat(speed) || 1.0
             },
-            language_boost: 'Auto',
+            language_boost: language_boost || 'Auto',
             with_transcript: false
         }),
-        signal: AbortSignal.timeout(15000)
+        signal: AbortSignal.timeout(25000)
     });
 
     if (!response.ok) {
@@ -160,7 +159,7 @@ async function generateWithMinimax(text, voiceId, speed) {
     }
 
     console.log(`✅ [Minimax] Task creat: ${data.task_id}`);
-    return await pollTask(data.task_id, 90000);
+    return await pollTask(data.task_id, 150000);
 }
 
 // ==========================================
@@ -183,7 +182,7 @@ function downloadAudio(url, dest) {
 // ==========================================
 // HELPER: Polling task până la finalizare
 // ==========================================
-async function pollTask(taskId, maxWait = 60000) {
+async function pollTask(taskId, maxWait = 150000) {
     const interval = 3000;
     const maxAttempts = Math.floor(maxWait / interval);
 
@@ -194,7 +193,7 @@ async function pollTask(taskId, maxWait = 60000) {
         try {
             response = await fetch(`${AI33_BASE_URL}/v1/task/${taskId}`, {
                 headers: { 'xi-api-key': AI33_API_KEY },
-                signal: AbortSignal.timeout(10000)
+                signal: AbortSignal.timeout(15000)
             });
         } catch (fetchErr) {
             console.warn(`⚠️ Polling eroare attempt ${i+1}: ${fetchErr.message}`);
@@ -220,7 +219,7 @@ async function pollTask(taskId, maxWait = 60000) {
         }
     }
 
-    throw new Error("Generarea a durat prea mult. Încearcă din nou în câteva secunde.");
+    throw new Error("Generarea a durat prea mult (150s). Încearcă din nou.");
 }
 
 // ==========================================
@@ -245,7 +244,7 @@ app.post('/api/generate', authenticate, async (req, res) => {
         // ── Cale directă Minimax (userul a ales explicit o voce Minimax) ──────
         if (req.body.provider === 'minimax') {
             try {
-                const mmUrl = await generateWithMinimax(text, req.body.minimaxVoiceId, speed);
+                const mmUrl = await generateWithMinimax(text, req.body.minimaxVoiceId, speed, req.body.pitch, req.body.vol, req.body.language_boost);
                 const mmFile = `voice_${Date.now()}.mp3`;
                 await downloadAudio(mmUrl, path.join(DOWNLOAD_DIR, mmFile));
                 user.voice_characters -= cost;
@@ -283,7 +282,7 @@ app.post('/api/generate', authenticate, async (req, res) => {
                         },
                         with_transcript: false
                     }),
-                    signal: AbortSignal.timeout(15000)
+                    signal: AbortSignal.timeout(25000)
                 }
             );
         } catch (fetchErr) {
@@ -305,7 +304,7 @@ app.post('/api/generate', authenticate, async (req, res) => {
 
             try {
                 const minimaxVoiceId = req.body.minimaxVoiceId || null;
-                outputUrl = await generateWithMinimax(text, minimaxVoiceId, speed);
+                outputUrl = await generateWithMinimax(text, minimaxVoiceId, speed, 0, 1, 'Auto');
                 usedProvider = 'minimax';
                 console.log(`✅ [Minimax fallback] Audio generat cu succes`);
             } catch (minimaxErr) {
@@ -386,7 +385,7 @@ app.get('/api/voices/minimax', async (req, res) => {
                     'xi-api-key': AI33_API_KEY
                 },
                 body: JSON.stringify({ page, page_size: PAGE_SIZE, tag_list: [] }),
-                signal: AbortSignal.timeout(10000)
+                signal: AbortSignal.timeout(15000)
             });
 
             if (!response.ok) {
@@ -422,6 +421,7 @@ app.get('/api/voices/minimax', async (req, res) => {
     }
 });
 
+app.get('/minimax', (req, res) => res.sendFile(path.join(__dirname, 'public', 'minimax.html')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 app.listen(PORT, () => console.log(`🚀 Voice Studio rulează pe portul ${PORT}!`));
