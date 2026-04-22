@@ -175,13 +175,13 @@
                         class="flex-1 py-2 px-3 rounded-lg text-xs font-black transition-all bg-white text-slate-900 shadow-sm flex items-center justify-center gap-2">
                         <i class="fa-solid fa-bolt text-amber-400"></i>
                         ElevenLabs
-                        <span id="dot-el" style="background:#f59e0b" class="w-2 h-2 rounded-full transition-colors duration-500 flex-shrink-0" title="Instabil"></span>
+                        <span id="dot-el" style="background:#22c55e" class="w-2 h-2 rounded-full transition-colors duration-500 flex-shrink-0" title="Functional"></span>
                     </button>
                     <button id="prov-btn-mm" onclick="switchProvider('minimax')"
                         class="flex-1 py-2 px-3 rounded-lg text-xs font-black transition-all text-slate-400 flex items-center justify-center gap-2">
                         <i class="fa-solid fa-microchip text-purple-400"></i>
                         Minimax
-                        <span id="dot-mm" style="background:#f59e0b" class="w-2 h-2 rounded-full transition-colors duration-500 flex-shrink-0" title="Instabil"></span>
+                        <span id="dot-mm" style="background:#22c55e" class="w-2 h-2 rounded-full transition-colors duration-500 flex-shrink-0" title="Functional"></span>
                     </button>
                 </div>
 
@@ -572,8 +572,8 @@ function updateStatusDots(){
         const log = providerStatus[p];
         // Fara date = galben (Instabil - necunoscut)
         if(!log.length){
-            dot.style.background='#f59e0b';
-            dot.title='Instabil';
+            dot.style.background='#22c55e';
+            dot.title='Functional';
             return;
         }
         const lastThree = log.slice(-3);
