@@ -434,12 +434,17 @@ const providerLog = {
 function getProviderStatus(p) {
     const log = providerLog[p];
     if (!log.length) return 'ok';
-    const last3 = log.slice(-3);
-    const consec = last3.slice(-2).every(v => !v);
-    const anyErr = last3.some(v => !v);
-    if (consec) return 'down';
-    if (anyErr) return 'unstable';
-    return 'ok';
+
+    // Numără erorile CONSECUTIVE de la finalul log-ului
+    let consecErrors = 0;
+    for (let i = log.length - 1; i >= 0; i--) {
+        if (!log[i]) consecErrors++;
+        else break; // s-a oprit la primul succes
+    }
+
+    if (consecErrors >= 5) return 'down';       // 5+ erori consecutive → roșu
+    if (consecErrors >= 2) return 'unstable';   // 2-4 erori consecutive → galben
+    return 'ok';                                // 0-1 erori → verde
 }
 
 // GET /api/provider-status — returnează statusul curent
