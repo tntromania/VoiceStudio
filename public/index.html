@@ -35,6 +35,11 @@
     </script>
 
     <style>
+	@media (max-width: 640px) {
+    .fixed.bottom-5.right-5 {
+        bottom: 5.5rem !important;
+    }
+}
         body { background-color: #F8FAFC; font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; color: #09090b; }
         .bg-gradient-viralio { background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%); }
         
@@ -74,6 +79,42 @@
         }
         .animate-shine-fast { animation: premiumShine 2.5s infinite cubic-bezier(0.4, 0, 0.2, 1); }
         .glass-premium-fin { box-shadow: 0 10px 30px -10px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.8); }
+
+        /* ── Provider Tabs ───────────────────────────────────── */
+        .vm-provider-tabs { display:flex; gap:8px; padding: 0 20px 14px; background:#0a0a0f; flex-shrink:0; }
+        .vm-ptab {
+            display:flex; align-items:center; gap:7px;
+            padding: 8px 16px; border-radius: 12px; font-size: 0.78rem; font-weight: 700;
+            border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04);
+            color: rgba(255,255,255,0.45); cursor:pointer; transition: all 0.2s; white-space:nowrap;
+        }
+        .vm-ptab:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8); }
+        .vm-ptab-active { background: rgba(99,102,241,0.18) !important; border-color: rgba(99,102,241,0.5) !important; color: #a5b4fc !important; }
+        .vm-status-dot {
+            width: 8px; height: 8px; border-radius: 50%; flex-shrink:0;
+            box-shadow: 0 0 6px currentColor; transition: background 0.4s;
+        }
+        .vm-ptab-count { font-size:0.65rem; background:rgba(255,255,255,0.1); padding:1px 6px; border-radius:20px; font-weight:800; }
+
+        /* ── Status Badge in Sidebar ─────────────────────────── */
+        .provider-status-row { display:flex; align-items:center; gap:8px; }
+        .provider-chip {
+            display:flex; align-items:center; gap:5px;
+            font-size:0.65rem; font-weight:800; padding:3px 8px; border-radius:20px;
+            border:1px solid; cursor:default; transition: all 0.4s;
+        }
+        .provider-chip .dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; transition: background 0.4s; }
+        .chip-el { border-color:#e0e7ff; background:#eef2ff; color:#4f46e5; }
+        .chip-mm { border-color:#fce7f3; background:#fdf2f8; color:#db2777; }
+
+        /* ── Minimax loading spinner ─────────────────────────── */
+        .vm-mm-loading { display:flex; flex-direction:column; align-items:center; justify-content:center; height:200px; gap:12px; color:rgba(255,255,255,0.4); font-size:0.85rem; }
+        .vm-mm-spinner { width:32px; height:32px; border:3px solid rgba(255,255,255,0.1); border-top-color:#a5b4fc; border-radius:50%; animation:spin 0.8s linear infinite; }
+        @keyframes spin { 100% { transform:rotate(360deg); } }
+
+        /* ── Toast notification ──────────────────────────────── */
+        #provider-toast { position:fixed; bottom:100px; left:50%; transform:translateX(-50%) translateY(20px); background:#1e1e2e; color:#a5b4fc; padding:10px 20px; border-radius:14px; font-size:0.8rem; font-weight:700; z-index:999999; opacity:0; transition:all 0.3s; pointer-events:none; border:1px solid rgba(165,180,252,0.2); white-space:nowrap; }
+        #provider-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
     </style>
 </head>
 <body class="md:p-4 selection:bg-viralio-500 selection:text-white">
@@ -165,6 +206,21 @@
                 <div class="flex justify-between items-center bg-slate-50 border border-slate-100 p-3 rounded-xl shrink-0">
                     <span class="text-sm font-bold text-slate-700">Model Motor AI</span>
                     <span class="text-xs font-black text-transparent bg-clip-text bg-gradient-viralio"><i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Viralio 2.5 HD</span>
+                </div>
+
+                <!-- Provider Status -->
+                <div class="flex items-center justify-between bg-slate-50 border border-slate-100 p-3 rounded-xl shrink-0">
+                    <span class="text-xs font-bold text-slate-500">Status Servere</span>
+                    <div class="provider-status-row">
+                        <div class="provider-chip chip-el" title="ElevenLabs status">
+                            <div class="dot" id="sidebar-status-elevenlabs" style="background:#22c55e;box-shadow:0 0 5px #22c55e;"></div>
+                            ElevenLabs
+                        </div>
+                        <div class="provider-chip chip-mm" title="Minimax status">
+                            <div class="dot" id="sidebar-status-minimax" style="background:#22c55e;box-shadow:0 0 5px #22c55e;"></div>
+                            Minimax
+                        </div>
+                    </div>
                 </div>
 
                 <!-- VOICE PICKER TRIGGER -->
@@ -305,6 +361,7 @@
 
 <audio id="core-audio" class="hidden"></audio>
 <audio id="preview-audio" class="hidden"></audio>
+<div id="provider-toast"></div>
 
 <!-- ══════════════════════════════════════════════════════════
      VOICE MODAL — Ultra Dark Premium
@@ -324,6 +381,20 @@
         </div>
       </div>
       <button class="vm-close-btn" onclick="closeVoiceModal()" title="Închide"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <!-- Provider Tabs -->
+    <div class="vm-provider-tabs">
+      <button class="vm-ptab vm-ptab-active" id="ptab-el" onclick="setVmProvider('elevenlabs')">
+        <span class="vm-status-dot" id="status-dot-el" style="background:#22c55e;box-shadow:0 0 6px #22c55e;"></span>
+        ElevenLabs
+        <span class="vm-ptab-count" id="el-count">200+</span>
+      </button>
+      <button class="vm-ptab" id="ptab-mm" onclick="setVmProvider('minimax')">
+        <span class="vm-status-dot" id="status-dot-mm" style="background:#22c55e;box-shadow:0 0 6px #22c55e;"></span>
+        Minimax
+        <span class="vm-ptab-count" id="mm-count">—</span>
+      </button>
     </div>
 
     <!-- Search + Filters -->
@@ -462,11 +533,81 @@ function updateSlider(id){
 // ══════════════════════════════════════════════════════════════
 let activeVoice   = 'Roger';
 let activeVoiceId = 'CwhRBWXzGAHq8TQ4Fs17';
+let activeProvider = 'elevenlabs'; // 'elevenlabs' | 'minimax'
 let vmFilter = 'all';
 let vmSearch = '';
 let vmSort   = 'az';
 let previewAudio = null;
 let previewActiveId = null;
+
+// ── Minimax state ─────────────────────────────────────────────
+let minimaxVoices  = [];
+let minimaxLoaded  = false;
+let minimaxLoading = false;
+let vmProvider     = 'elevenlabs'; // tab activ în modal
+
+// ── Provider status ───────────────────────────────────────────
+const providerStatus = { elevenlabs: 'ok', minimax: 'ok' };
+
+function updateProviderStatus(provider, status) {
+    providerStatus[provider] = status;
+    const color = status === 'ok' ? '#22c55e' : '#ef4444';
+    const shadow = status === 'ok' ? '0 0 6px #22c55e' : '0 0 6px #ef4444';
+    // Modal dots
+    const modalDot = document.getElementById(provider === 'elevenlabs' ? 'status-dot-el' : 'status-dot-mm');
+    if (modalDot) { modalDot.style.background = color; modalDot.style.boxShadow = shadow; }
+    // Sidebar dots
+    const sidebarDot = document.getElementById(`sidebar-status-${provider}`);
+    if (sidebarDot) { sidebarDot.style.background = color; sidebarDot.style.boxShadow = shadow; }
+}
+
+let toastTimer = null;
+function showToast(msg) {
+    const t = document.getElementById('provider-toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+async function loadMinimaxVoices() {
+    if (minimaxLoaded || minimaxLoading) return;
+    minimaxLoading = true;
+    const grid = document.getElementById('vm-grid');
+    if (grid) grid.innerHTML = '<div class="vm-mm-loading"><div class="vm-mm-spinner"></div><span>Se încarcă vocile Minimax...</span></div>';
+    try {
+        const res = await fetch('/api/voices/minimax');
+        const data = await res.json();
+        if (data.voices && data.voices.length) {
+            minimaxVoices = data.voices;
+            minimaxLoaded = true;
+            const cnt = document.getElementById('mm-count');
+            if (cnt) cnt.textContent = minimaxVoices.length;
+        } else {
+            throw new Error('Nicio voce returnată');
+        }
+    } catch(e) {
+        console.error('Minimax voices load error:', e);
+        updateProviderStatus('minimax', 'unstable');
+        const grid2 = document.getElementById('vm-grid');
+        if (grid2) grid2.innerHTML = '<div class="vm-mm-loading" style="color:#f87171"><i class="fa-solid fa-triangle-exclamation" style="font-size:1.5rem;margin-bottom:4px"></i><span>Nu s-au putut încărca vocile Minimax.</span></div>';
+    } finally {
+        minimaxLoading = false;
+        if (minimaxLoaded) renderVoiceGrid();
+    }
+}
+
+function setVmProvider(p) {
+    vmProvider = p;
+    document.getElementById('ptab-el')?.classList.toggle('vm-ptab-active', p === 'elevenlabs');
+    document.getElementById('ptab-mm')?.classList.toggle('vm-ptab-active', p === 'minimax');
+    // Reset filters when switching
+    vmSearch = ''; const si = document.getElementById('vm-search-input'); if(si) si.value = '';
+    setVmFilter('all', false);
+    if (p === 'minimax' && !minimaxLoaded) { loadMinimaxVoices(); return; }
+    renderVoiceGrid();
+}
 
 function openVoiceModal(){
     document.getElementById('vm-overlay').classList.add('vm-open');
@@ -505,11 +646,12 @@ function stopPreview(){
     previewActiveId=null;
 }
 
-function togglePreview(vid, btn){
+function togglePreview(vid, btn, sampleUrl){
     if(previewActiveId===vid){ stopPreview(); return; }
     stopPreview();
     previewActiveId=vid;
-    const url=`/assets/previews/${vid}.mp3`;
+    // Minimax voices have a direct sampleUrl; ElevenLabs uses local previews
+    const url = sampleUrl || `/assets/previews/${vid}.mp3`;
     previewAudio=new Audio(url);
     previewAudio.play().catch(()=>{});
     btn.innerHTML='<i class="fa-solid fa-pause" style="font-size:.6rem"></i>';
@@ -518,10 +660,63 @@ function togglePreview(vid, btn){
 }
 
 function renderVoiceGrid(){
+    // ── Minimax tab ─────────────────────────────────────────────
+    if (vmProvider === 'minimax') {
+        if (!minimaxLoaded) return; // loadMinimaxVoices handles the loading UI
+        const q = vmSearch.toLowerCase();
+        let list = [...minimaxVoices];
+        if (vmFilter === 'male')   list = list.filter(v => v.gender === 'male');
+        else if (vmFilter === 'female') list = list.filter(v => v.gender === 'female');
+        if (q) list = list.filter(v => v.name.toLowerCase().includes(q) || (v.accent||'').toLowerCase().includes(q) || (v.tags||[]).some(t=>t.toLowerCase().includes(q)));
+        if (vmSort === 'az') list.sort((a,b) => a.name.localeCompare(b.name));
+        else if (vmSort === 'gender') list.sort((a,b) => a.gender.localeCompare(b.gender)||a.name.localeCompare(b.name));
+
+        const grid = document.getElementById('vm-grid');
+        const empty = document.getElementById('vm-empty');
+        const countEl = document.getElementById('vm-result-count');
+        if (countEl) countEl.innerText = list.length;
+        if (!list.length) { grid.innerHTML=''; empty.style.display='flex'; return; }
+        empty.style.display = 'none';
+
+        // Minimax accent → color mapping
+        const mmColors = { English:'#6366f1', Romanian:'#ec4899', French:'#f59e0b', Spanish:'#ef4444', German:'#64748b', Italian:'#84cc16', Portuguese:'#8b5cf6', Japanese:'#14b8a6', Korean:'#fb923c', Chinese:'#f97316', Arabic:'#a78bfa', Auto:'#10b981' };
+        grid.innerHTML = list.map((v,i) => {
+            const accent = v.tags.find(t => mmColors[t]) || 'Auto';
+            const col = mmColors[accent] || '#94a3b8';
+            const initials = v.name.replace(/[^A-Za-zÀ-ž ]/g,'').split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase() || v.name.substring(0,2).toUpperCase();
+            const isActive = activeProvider==='minimax' && v.id===activeVoiceId;
+            const genderLabel = v.gender==='female'?'Feminin':v.gender==='male'?'Masculin':'—';
+            const genderClass = v.gender==='female'?'vm-g-f':v.gender==='male'?'vm-g-m':'vm-g-s';
+            const safeUrl = (v.sampleAudio||'').replace(/'/g,"\\'");
+            const safeName = v.name.replace(/'/g,"\\'");
+            const safeAccent = accent.replace(/'/g,"\\'");
+            const delay = Math.min(i*0.015, 0.3);
+            const tagsDisplay = v.tags.slice(0,3).join(' · ');
+            return `<div class="vm-card${isActive?' vm-card-active':''}" style="animation-delay:${delay}s"
+                         onclick="pickVoice('${safeName}','${v.id}','${tagsDisplay.replace(/'/g,"\\'")}','${v.gender}','minimax','${safeUrl}')">
+                <div class="vm-card-top">
+                    <div class="vm-avatar" style="background:${col}">${initials}</div>
+                    <div class="vm-card-info">
+                        <div class="vm-card-name">${v.name}</div>
+                        <span class="vm-gender-badge ${genderClass}">${genderLabel}</span>
+                    </div>
+                    <button class="vm-play-btn${previewActiveId===v.id?' playing':''}" data-vid="${v.id}"
+                            onclick="event.stopPropagation();togglePreview('${v.id}',this,'${safeUrl}')" title="Preview voce">
+                        <i class="fa-solid ${previewActiveId===v.id?'fa-pause':'fa-play'}" style="font-size:.6rem;margin-left:${previewActiveId===v.id?'0':'1px'}"></i>
+                    </button>
+                </div>
+                <div class="vm-style">${tagsDisplay || accent}</div>
+                <div class="vm-use-pill" style="background:rgba(236,72,153,0.12);color:#db2777;border-color:rgba(236,72,153,0.25)">🎵 Minimax</div>
+                ${isActive?'<div class="vm-active-badge"><i class="fa-solid fa-check"></i> Activ</div>':''}
+            </div>`;
+        }).join('');
+        return;
+    }
+
+    // ── ElevenLabs tab (original logic) ─────────────────────────
     const q=vmSearch.toLowerCase();
     let list=[...ALL_VOICES];
 
-    // Filter by accent as well as tags
     const accentFilters=['american','british','australian','spanish','french','indian','korean','japanese','german','italian','arabic','chinese','irish'];
     if(accentFilters.includes(vmFilter))       list=list.filter(v=>v.accent===vmFilter);
     else if(vmFilter==='male')    list=list.filter(v=>v.gender==='male');
@@ -533,7 +728,6 @@ function renderVoiceGrid(){
 
     if(q) list=list.filter(v=>v.name.toLowerCase().includes(q)||v.style.toLowerCase().includes(q)||v.accent.toLowerCase().includes(q));
 
-    // Sort
     if(vmSort==='az')     list.sort((a,b)=>a.name.localeCompare(b.name));
     else if(vmSort==='gender') list.sort((a,b)=>a.gender.localeCompare(b.gender)||a.name.localeCompare(b.name));
     else if(vmSort==='use')    list.sort((a,b)=>a.use.localeCompare(b.use)||a.name.localeCompare(b.name));
@@ -551,14 +745,14 @@ function renderVoiceGrid(){
     grid.innerHTML=list.map((v,i)=>{
         const col=vColor(v);
         const initials=v.name.replace(/[^A-Za-zÀ-ž ]/g,'').split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||v.name.substring(0,2).toUpperCase();
-        const isActive=v.id===activeVoiceId;
+        const isActive=activeProvider==='elevenlabs' && v.id===activeVoiceId;
         const genderLabel=v.gender==='female'?'Feminin':v.gender==='male'?'Masculin':'Special';
         const genderClass=v.gender==='female'?'vm-g-f':v.gender==='male'?'vm-g-m':'vm-g-s';
         const useLabel=USE_LABELS[v.use]||'⚡ General';
         const delay=Math.min(i*0.015, 0.3);
         return `<div class="vm-card${isActive?' vm-card-active':''}" 
                      style="animation-delay:${delay}s"
-                     onclick="pickVoice('${v.name.replace(/'/g,"\\'")}','${v.id}','${v.style.replace(/'/g,"\\'")}','${v.gender}')">
+                     onclick="pickVoice('${v.name.replace(/'/g,"\\'")}','${v.id}','${v.style.replace(/'/g,"\\'")}','${v.gender}','elevenlabs')">
             <div class="vm-card-top">
                 <div class="vm-avatar" style="background:${col}" title="${v.accent}">${initials}</div>
                 <div class="vm-card-info">
@@ -577,8 +771,9 @@ function renderVoiceGrid(){
     }).join('');
 }
 
-function pickVoice(name, vid, style, gender){
+function pickVoice(name, vid, style, gender, provider, sampleUrl){
     activeVoice=name; activeVoiceId=vid;
+    activeProvider = provider || 'elevenlabs';
     const nameEl=document.getElementById('active-voice-name');
     const badgeEl=document.getElementById('active-voice-badge');
     const avEl=document.getElementById('active-voice-avatar');
@@ -587,9 +782,18 @@ function pickVoice(name, vid, style, gender){
     if(avEl){
         const initials=name.replace(/[^A-Za-zÀ-ž ]/g,'').split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||name.substring(0,2).toUpperCase();
         avEl.innerText=initials;
-        // Find voice object for color
-        const vo=ALL_VOICES.find(v=>v.id===vid);
-        avEl.style.background=vo?vColor(vo):'#6366f1';
+        if(activeProvider === 'minimax'){
+            // Pink/magenta for Minimax voices
+            avEl.style.background='linear-gradient(135deg, #db2777, #9333ea)';
+        } else {
+            const vo=ALL_VOICES.find(v=>v.id===vid);
+            avEl.style.background=vo?vColor(vo):'#6366f1';
+        }
+    }
+    // Update badge to show provider
+    const provBadge = document.getElementById('active-voice-badge');
+    if(provBadge && activeProvider === 'minimax'){
+        provBadge.innerText = '🎵 Minimax · ' + style;
     }
     stopPreview();
     closeVoiceModal();
@@ -652,26 +856,51 @@ async function processAudio(){
     const btn=document.getElementById('generateBtn');
     if(btn){ btn.classList.add('is-generating'); btn.disabled=true; }
     try{
-        // Timeout de 90s — dacă serverul nu răspunde, nu rămânem blocați la infinit
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 90000);
         let res, data;
+        // Build body — trimite minimaxVoiceId și provider când e Minimax
+        const body = {
+            text,
+            voice: activeVoice,
+            voiceId: activeProvider === 'elevenlabs' ? activeVoiceId : undefined,
+            minimaxVoiceId: activeProvider === 'minimax' ? activeVoiceId : undefined,
+            provider: activeProvider,
+            stability: parseFloat(document.getElementById('param-stab').value)/100,
+            similarity_boost: parseFloat(document.getElementById('param-sim').value)/100,
+            speed: parseFloat(document.getElementById('param-speed').value)
+        };
         try {
             res = await fetch('/api/generate',{
                 method:'POST',
                 headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
-                body:JSON.stringify({ text, voice:activeVoice, voiceId:activeVoiceId,
-                    stability: parseFloat(document.getElementById('param-stab').value)/100,
-                    similarity_boost: parseFloat(document.getElementById('param-sim').value)/100,
-                    speed: parseFloat(document.getElementById('param-speed').value) }),
+                body: JSON.stringify(body),
                 signal: controller.signal
             });
         } catch(fetchErr) {
             if(fetchErr.name === 'AbortError') throw new Error('Timeout — serverul nu a răspuns în 90s. Încearcă din nou.');
             throw fetchErr;
         } finally { clearTimeout(timeoutId); }
+
         data = await res.json();
-        if(!res.ok) throw new Error(data.error||'Eroare la generare.');
+
+        if(!res.ok){
+            // Marchează providerul ca instabil pe erori de server
+            if(res.status===429||res.status===503||res.status===502){
+                updateProviderStatus(activeProvider, 'unstable');
+            }
+            throw new Error(data.error||'Eroare la generare.');
+        }
+
+        // Dacă ElevenLabs a picat și s-a folosit Minimax ca fallback automat
+        if(data.provider === 'minimax' && activeProvider === 'elevenlabs'){
+            updateProviderStatus('elevenlabs', 'unstable');
+            showToast('⚠️ ElevenLabs instabil — audio generat cu Minimax');
+        } else if(data.provider) {
+            // Resetează statusul providerului folosit (a mers cu succes)
+            updateProviderStatus(data.provider, 'ok');
+        }
+
         launchPlayer(data.audioUrl, activeVoice, text);
         addToHistory(text, activeVoice, data.audioUrl);
         currentVoiceCharacters=data.remaining_chars||(currentVoiceCharacters-cost);
