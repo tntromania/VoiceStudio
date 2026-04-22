@@ -124,7 +124,8 @@ const VOICE_ID_MAP = {
 // ==========================================
 // HELPER: Generare cu Minimax (fallback)
 // ==========================================
-async function generateWithMinimax(text, voiceId, speed, pitch, vol, language_boost) {
+async function generateWithMinimax(text, voiceId, speed) {
+    // Dacă nu avem un voice_id Minimax explicit, folosim o voce default neutră
     const minimaxVoiceId = voiceId || '226893671006276'; // Graceful Lady (fallback default)
 
     const response = await fetch(`${AI33_BASE_URL}/v1m/task/text-to-speech`, {
@@ -138,11 +139,11 @@ async function generateWithMinimax(text, voiceId, speed, pitch, vol, language_bo
             model: 'speech-2.6-hd',
             voice_setting: {
                 voice_id: minimaxVoiceId,
-                vol: parseFloat(vol) || 1.0,
-                pitch: parseInt(pitch) || 0,
+                vol: 1,
+                pitch: 0,
                 speed: parseFloat(speed) || 1.0
             },
-            language_boost: language_boost || 'Auto',
+            language_boost: 'Auto',
             with_transcript: false
         }),
         signal: AbortSignal.timeout(25000)
@@ -244,7 +245,7 @@ app.post('/api/generate', authenticate, async (req, res) => {
         // ── Cale directă Minimax (userul a ales explicit o voce Minimax) ──────
         if (req.body.provider === 'minimax') {
             try {
-                const mmUrl = await generateWithMinimax(text, req.body.minimaxVoiceId, speed, req.body.pitch, req.body.vol, req.body.language_boost);
+                const mmUrl = await generateWithMinimax(text, req.body.minimaxVoiceId, speed);
                 const mmFile = `voice_${Date.now()}.mp3`;
                 await downloadAudio(mmUrl, path.join(DOWNLOAD_DIR, mmFile));
                 user.voice_characters -= cost;
@@ -304,7 +305,7 @@ app.post('/api/generate', authenticate, async (req, res) => {
 
             try {
                 const minimaxVoiceId = req.body.minimaxVoiceId || null;
-                outputUrl = await generateWithMinimax(text, minimaxVoiceId, speed, 0, 1, 'Auto');
+                outputUrl = await generateWithMinimax(text, minimaxVoiceId, speed);
                 usedProvider = 'minimax';
                 console.log(`✅ [Minimax fallback] Audio generat cu succes`);
             } catch (minimaxErr) {
@@ -421,7 +422,46 @@ app.get('/api/voices/minimax', async (req, res) => {
     }
 });
 
-app.get('/minimax', (req, res) => res.sendFile(path.join(__dirname, 'public', 'minimax.html')));
+
+// ══════════════════════════════════════════════════════════════
+// STATUS PROVIDER — partajat între toți userii
+// ══════════════════════════════════════════════════════════════
+const providerLog = {
+    elevenlabs: [], // true=ok, false=err
+    minimax: []
+};
+
+function getProviderStatus(p) {
+    const log = providerLog[p];
+    if (!log.length) return 'ok';
+    const last3 = log.slice(-3);
+    const consec = last3.slice(-2).every(v => !v);
+    const anyErr = last3.some(v => !v);
+    if (consec) return 'down';
+    if (anyErr) return 'unstable';
+    return 'ok';
+}
+
+// GET /api/provider-status — returnează statusul curent
+app.get('/api/provider-status', (req, res) => {
+    res.json({
+        elevenlabs: getProviderStatus('elevenlabs'),
+        minimax: getProviderStatus('minimax'),
+        updatedAt: new Date().toISOString()
+    });
+});
+
+// POST /api/provider-status/report — raportat de client după generare
+app.post('/api/provider-status/report', (req, res) => {
+    const { provider, success } = req.body;
+    if (!['elevenlabs','minimax'].includes(provider)) return res.status(400).json({ error: 'Provider invalid' });
+    const log = providerLog[provider];
+    log.push(!!success);
+    if (log.length > 10) log.shift();
+    console.log(`[STATUS] ${provider}: ${success ? 'OK' : 'ERR'} → ${getProviderStatus(provider)}`);
+    res.json({ status: getProviderStatus(provider) });
+});
+
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 app.listen(PORT, () => console.log(`🚀 Voice Studio rulează pe portul ${PORT}!`));
