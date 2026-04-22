@@ -122,6 +122,48 @@ const VOICE_ID_MAP = {
 };
 
 // ==========================================
+// HELPER: Generare cu Minimax (fallback)
+// ==========================================
+async function generateWithMinimax(text, voiceId, speed) {
+    // Dacă nu avem un voice_id Minimax explicit, folosim o voce default neutră
+    const minimaxVoiceId = voiceId || '226893671006276'; // Graceful Lady (fallback default)
+
+    const response = await fetch(`${AI33_BASE_URL}/v1m/task/text-to-speech`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'xi-api-key': AI33_API_KEY
+        },
+        body: JSON.stringify({
+            text: text,
+            model: 'speech-2.6-hd',
+            voice_setting: {
+                voice_id: minimaxVoiceId,
+                vol: 1,
+                pitch: 0,
+                speed: parseFloat(speed) || 1.0
+            },
+            language_boost: 'Auto',
+            with_transcript: false
+        }),
+        signal: AbortSignal.timeout(15000)
+    });
+
+    if (!response.ok) {
+        const errBody = await response.text();
+        throw new Error(`Minimax error ${response.status}: ${errBody}`);
+    }
+
+    const data = await response.json();
+    if (!data.success || !data.task_id) {
+        throw new Error('Minimax: eroare la inițializarea generării.');
+    }
+
+    console.log(`✅ [Minimax] Task creat: ${data.task_id}`);
+    return await pollTask(data.task_id, 90000);
+}
+
+// ==========================================
 // HELPER: Descărcare fișier audio
 // ==========================================
 function downloadAudio(url, dest) {
@@ -200,6 +242,22 @@ app.post('/api/generate', authenticate, async (req, res) => {
             return res.status(403).json({ error: `Caractere insuficiente. Ai nevoie de ${cost} caractere.` });
         }
 
+        // ── Cale directă Minimax (userul a ales explicit o voce Minimax) ──────
+        if (req.body.provider === 'minimax') {
+            try {
+                const mmUrl = await generateWithMinimax(text, req.body.minimaxVoiceId, speed);
+                const mmFile = `voice_${Date.now()}.mp3`;
+                await downloadAudio(mmUrl, path.join(DOWNLOAD_DIR, mmFile));
+                user.voice_characters -= cost;
+                await user.save();
+                console.log(`🎙️ [Minimax Direct] ${mmFile} | Chars rămase: ${user.voice_characters}`);
+                return res.json({ audioUrl: `/downloads/${mmFile}`, remaining_chars: user.voice_characters, provider: 'minimax' });
+            } catch(mmDirectErr) {
+                console.error('❌ Minimax direct error:', mmDirectErr.message);
+                return res.status(500).json({ error: mmDirectErr.message || 'Eroare Minimax. Încearcă din nou.' });
+            }
+        }
+
         const voiceId = req.body.voiceId || VOICE_ID_MAP[voice] || VOICE_ID_MAP["Paul"];
         const modelId = "eleven_multilingual_v2";
 
@@ -234,31 +292,44 @@ app.post('/api/generate', authenticate, async (req, res) => {
             throw fetchErr;
         }
 
-        if (!voiceResponse.ok) {
+        // ── Fallback Minimax dacă ElevenLabs e jos ───────────────
+        const shouldFallback = !voiceResponse.ok &&
+            [429, 502, 503].includes(voiceResponse.status);
+
+        let outputUrl;
+        let usedProvider = 'elevenlabs';
+
+        if (shouldFallback) {
+            const errBody = await voiceResponse.text();
+            console.warn(`⚠️ ElevenLabs ${voiceResponse.status} — fallback la Minimax. Body: ${errBody}`);
+
+            try {
+                const minimaxVoiceId = req.body.minimaxVoiceId || null;
+                outputUrl = await generateWithMinimax(text, minimaxVoiceId, speed);
+                usedProvider = 'minimax';
+                console.log(`✅ [Minimax fallback] Audio generat cu succes`);
+            } catch (minimaxErr) {
+                console.error('❌ Minimax fallback a eșuat:', minimaxErr.message);
+                if (voiceResponse.status === 429) {
+                    return res.status(429).json({ error: "Ambele servere vocale sunt suprasolicitate. Așteaptă 10-30 secunde și încearcă din nou!" });
+                }
+                return res.status(503).json({ error: "Serviciile vocale sunt temporar indisponibile. Revino în câteva minute!" });
+            }
+        } else if (!voiceResponse.ok) {
             const errBody = await voiceResponse.text();
             console.error("Eroare server vocal:", voiceResponse.status, errBody);
-
-            if (voiceResponse.status === 429) {
-                return res.status(429).json({ error: "Serverul este suprasolicitat momentan. Așteaptă 5-10 secunde și încearcă din nou!" });
-            }
             if (voiceResponse.status === 401) {
                 return res.status(500).json({ error: "Eroare internă de configurare. Contactează suportul." });
             }
-            if (voiceResponse.status === 503 || voiceResponse.status === 502) {
-                return res.status(503).json({ error: "Serverul vocal este în mentenanță. Revino în câteva minute!" });
-            }
             throw new Error(`Eroare internă la procesarea vocii (${voiceResponse.status})`);
+        } else {
+            const responseData = await voiceResponse.json();
+            if (!responseData.success || !responseData.task_id) {
+                throw new Error("Eroare internă la inițializarea generării.");
+            }
+            console.log(`✅ Task creat: ${responseData.task_id}`);
+            outputUrl = await pollTask(responseData.task_id);
         }
-
-        const responseData = await voiceResponse.json();
-
-        if (!responseData.success || !responseData.task_id) {
-            throw new Error("Eroare internă la inițializarea generării.");
-        }
-
-        console.log(`✅ Task creat: ${responseData.task_id}`);
-
-        const outputUrl = await pollTask(responseData.task_id);
 
         const fileName = `voice_${Date.now()}.mp3`;
         const filePath = path.join(DOWNLOAD_DIR, fileName);
@@ -267,7 +338,8 @@ app.post('/api/generate', authenticate, async (req, res) => {
         user.voice_characters -= cost;
         await user.save();
 
-        res.json({ audioUrl: `/downloads/${fileName}`, remaining_chars: user.voice_characters });
+        console.log(`🎤 [${usedProvider.toUpperCase()}] Audio salvat: ${fileName} | Chars rămase: ${user.voice_characters}`);
+        res.json({ audioUrl: `/downloads/${fileName}`, remaining_chars: user.voice_characters, provider: usedProvider });
 
     } catch (error) {
         console.error("ERROR VOICE GEN:", error.message || error);
@@ -294,6 +366,61 @@ setInterval(() => {
         });
     });
 }, 3600000);
+
+// ==========================================
+// RUTĂ VOCI MINIMAX (200+ voci, paginate)
+// ==========================================
+app.get('/api/voices/minimax', async (req, res) => {
+    try {
+        const PAGE_SIZE = 30;
+        const TARGET = 210; // Vrem cel puțin 200 voci
+        let allVoices = [];
+        let page = 1;
+        let hasMore = true;
+
+        while (hasMore && allVoices.length < TARGET) {
+            const response = await fetch(`${AI33_BASE_URL}/v1m/voice/list`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'xi-api-key': AI33_API_KEY
+                },
+                body: JSON.stringify({ page, page_size: PAGE_SIZE, tag_list: [] }),
+                signal: AbortSignal.timeout(10000)
+            });
+
+            if (!response.ok) {
+                const err = await response.text();
+                throw new Error(`Minimax voice list error ${response.status}: ${err}`);
+            }
+
+            const data = await response.json();
+            if (!data.success || !data.data?.voice_list) break;
+
+            const voices = data.data.voice_list.map(v => ({
+                id: v.voice_id,
+                name: v.voice_name,
+                tags: v.tag_list || [],
+                gender: (v.tag_list || []).find(t => ['Female','Male'].includes(t))?.toLowerCase() || 'unknown',
+                accent: (v.tag_list || []).find(t => ['English','Romanian','French','Spanish','German','Italian','Portuguese','Japanese','Korean','Chinese','Arabic'].includes(t)) || 'other',
+                sampleAudio: v.sample_audio || null,
+                coverUrl: v.cover_url || null,
+                provider: 'minimax'
+            }));
+
+            allVoices = allVoices.concat(voices);
+            hasMore = data.data.has_more;
+            page++;
+
+            console.log(`📋 Minimax voci page ${page-1}: +${voices.length} (total: ${allVoices.length})`);
+        }
+
+        res.json({ voices: allVoices, total: allVoices.length });
+    } catch (error) {
+        console.error('Eroare voci Minimax:', error.message);
+        res.status(500).json({ error: 'Nu s-au putut încărca vocile Minimax.' });
+    }
+});
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
