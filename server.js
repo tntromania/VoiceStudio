@@ -160,7 +160,7 @@ async function generateWithMinimax(text, voiceId, speed) {
     }
 
     console.log(`✅ [Minimax] Task creat: ${data.task_id}`);
-    return await pollTask(data.task_id, 150000);
+    return await pollTask(data.task_id, 75000);
 }
 
 // ==========================================
@@ -183,7 +183,7 @@ function downloadAudio(url, dest) {
 // ==========================================
 // HELPER: Polling task până la finalizare
 // ==========================================
-async function pollTask(taskId, maxWait = 150000) {
+async function pollTask(taskId, maxWait = 75000) {
     const interval = 3000;
     const maxAttempts = Math.floor(maxWait / interval);
 
@@ -220,7 +220,7 @@ async function pollTask(taskId, maxWait = 150000) {
         }
     }
 
-    throw new Error("Generarea a durat prea mult (150s). Încearcă din nou.");
+    throw new Error("Generarea a durat prea mult (75s). Încearcă din nou.");
 }
 
 // ==========================================
@@ -328,7 +328,23 @@ app.post('/api/generate', authenticate, async (req, res) => {
                 throw new Error("Eroare internă la inițializarea generării.");
             }
             console.log(`✅ Task creat: ${responseData.task_id}`);
-            outputUrl = await pollTask(responseData.task_id);
+            try {
+                outputUrl = await pollTask(responseData.task_id);
+            } catch (pollErr) {
+                // Timeout sau eroare polling ElevenLabs → marchează ca eroare în status
+                providerLog['elevenlabs'].push(false);
+                if (providerLog['elevenlabs'].length > 10) providerLog['elevenlabs'].shift();
+                console.error(`❌ [ElevenLabs] Timeout/eroare polling (${pollErr.message}) → status: ${getProviderStatus('elevenlabs')} — fallback automat la Minimax`);
+                try {
+                    const minimaxVoiceId = req.body.minimaxVoiceId || null;
+                    outputUrl = await generateWithMinimax(text, minimaxVoiceId, speed, req.body.pitch, req.body.vol, req.body.language_boost);
+                    usedProvider = 'minimax';
+                    console.log(`✅ [Minimax fallback după timeout EL] Audio generat cu succes`);
+                } catch (mmFallbackErr) {
+                    console.error(`❌ [Minimax fallback] A eșuat și el:`, mmFallbackErr.message);
+                    return res.status(503).json({ error: "Ambele servere vocale au timeout. Încearcă din nou în câteva secunde." });
+                }
+            }
         }
 
         const fileName = `voice_${Date.now()}.mp3`;
