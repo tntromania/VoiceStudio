@@ -140,7 +140,7 @@
                 </div>
             </div>
             <div class="flex-1 relative p-6 md:p-8 overflow-hidden bg-white min-h-[300px]">
-                <textarea id="script-input" class="w-full h-full bg-transparent border-none outline-none resize-none text-slate-800 text-[1.1rem] md:text-xl font-medium leading-relaxed placeholder:text-slate-300 no-scrollbar" placeholder="Lipește aici povestea ta. Modelul Eleven v3 HD va citi respectând intonația naturală..."></textarea>
+                <textarea id="script-input" class="w-full h-full bg-transparent border-none outline-none resize-none text-slate-800 text-[1.1rem] md:text-xl font-medium leading-relaxed placeholder:text-slate-300 no-scrollbar" placeholder="Lipește aici povestea ta. Modelul Eleven v3 va citi respectând intonația naturală..."></textarea>
             </div>
             <div class="px-6 md:px-8 py-5 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
                 <div class="flex gap-2 w-full sm:w-auto">
@@ -188,7 +188,7 @@
                 <!-- Model label -->
                 <div class="flex justify-between items-center bg-slate-50 border border-slate-100 p-3 rounded-xl shrink-0">
                     <span class="text-sm font-bold text-slate-700">Model Motor AI</span>
-                    <span id="model-label" class="text-xs font-black text-transparent bg-clip-text bg-gradient-viralio"><i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Eleven v3 HD</span>
+                    <span id="model-label" class="text-xs font-black text-transparent bg-clip-text bg-gradient-viralio"><i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Eleven v3</span>
                 </div>
 
                 <!-- VOICE PICKER TRIGGER -->
@@ -616,7 +616,7 @@ function switchProvider(p){
     // Update model label
     const ml=document.getElementById('model-label');
     if(ml) ml.innerHTML = isEL
-        ? '<i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Eleven v3 HD'
+        ? '<i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Eleven v3'
         : '<i class="fa-solid fa-microchip text-purple-400 mr-1"></i> Minimax 2.6 HD';
     // Restore voice for this provider
     const name = isEL ? elVoice : mmVoice;
