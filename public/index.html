@@ -107,6 +107,11 @@
                     </div>
                     <button onclick="logout()" class="p-2 text-slate-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50"><i class="fa-solid fa-power-off"></i></button>
                 </div>
+                <!-- STATUS DOTS -->
+                <div class="hidden md:flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-full px-3 py-1.5 ml-2" id="status-indicator" title="Status server API">
+                    <div id="status-dot" class="w-2.5 h-2.5 rounded-full bg-slate-300 transition-colors duration-500"></div>
+                    <span id="status-label" class="text-[0.6rem] font-black text-slate-400 uppercase tracking-widest">N/A</span>
+                </div>
             </div>
         </nav>
     </div>
@@ -166,10 +171,24 @@
                 <button onclick="switchTab('history')" id="tab-btn-history" class="flex-1 py-3 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all">Istoric Sesiune</button>
             </div>
 
-            <div id="tab-settings" class="flex flex-col p-6 space-y-6 overflow-y-auto no-scrollbar flex-1">
+            <div id="tab-settings" class="flex flex-col p-6 space-y-5 overflow-y-auto no-scrollbar flex-1">
+
+                <!-- PROVIDER TOGGLE -->
+                <div class="flex bg-slate-100 rounded-xl p-1 gap-1 shrink-0">
+                    <button id="prov-btn-el" onclick="switchProvider('elevenlabs')"
+                        class="flex-1 py-2 rounded-lg text-xs font-black transition-all bg-white text-slate-900 shadow-sm">
+                        <i class="fa-solid fa-bolt text-amber-400 mr-1"></i> ElevenLabs
+                    </button>
+                    <button id="prov-btn-mm" onclick="switchProvider('minimax')"
+                        class="flex-1 py-2 rounded-lg text-xs font-black transition-all text-slate-400">
+                        <i class="fa-solid fa-microchip text-purple-400 mr-1"></i> Minimax
+                    </button>
+                </div>
+
+                <!-- Model label -->
                 <div class="flex justify-between items-center bg-slate-50 border border-slate-100 p-3 rounded-xl shrink-0">
                     <span class="text-sm font-bold text-slate-700">Model Motor AI</span>
-                    <span class="text-xs font-black text-transparent bg-clip-text bg-gradient-viralio"><i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Viralio 2.5 HD</span>
+                    <span id="model-label" class="text-xs font-black text-transparent bg-clip-text bg-gradient-viralio"><i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Viralio 2.5 HD</span>
                 </div>
 
                 <!-- VOICE PICKER TRIGGER -->
@@ -189,7 +208,8 @@
 
                 <div class="w-full h-px bg-slate-100 shrink-0"></div>
 
-                <div class="space-y-6 pt-1 shrink-0">
+                <!-- ── ELEVENLABS PARAMS ── -->
+                <div id="params-elevenlabs" class="space-y-5 shrink-0">
                     <div class="relative">
                         <div class="flex justify-between items-end mb-1">
                             <label class="text-sm font-bold text-slate-700">Stabilitate</label>
@@ -233,6 +253,80 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- ── MINIMAX PARAMS ── -->
+                <div id="params-minimax" class="space-y-5 shrink-0 hidden">
+                    <!-- Language Boost -->
+                    <div>
+                        <label class="text-sm font-bold text-slate-700 mb-2 block">Language Boost</label>
+                        <select id="param-lang" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:border-purple-400 transition-all">
+                            <option value="Auto">Auto</option>
+                            <option value="Romanian" selected>Romanian</option>
+                            <option value="English">English</option>
+                            <option value="Spanish">Spanish</option>
+                            <option value="French">French</option>
+                            <option value="German">German</option>
+                            <option value="Italian">Italian</option>
+                            <option value="Portuguese">Portuguese</option>
+                            <option value="Japanese">Japanese</option>
+                            <option value="Korean">Korean</option>
+                            <option value="Chinese">Chinese</option>
+                            <option value="Arabic">Arabic</option>
+                            <option value="Russian">Russian</option>
+                            <option value="Turkish">Turkish</option>
+                            <option value="Polish">Polish</option>
+                            <option value="Ukrainian">Ukrainian</option>
+                            <option value="Vietnamese">Vietnamese</option>
+                            <option value="Hindi">Hindi</option>
+                        </select>
+                    </div>
+                    <!-- Speed MM -->
+                    <div class="relative">
+                        <div class="flex justify-between items-end mb-1">
+                            <label class="text-sm font-bold text-slate-700">Viteză Vorbire</label>
+                            <span id="mm-speed-val" class="text-xs font-black text-purple-600 bg-purple-50 px-2 py-0.5 rounded border border-purple-100">1.00x</span>
+                        </div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[0.6rem] text-slate-400 font-bold uppercase tracking-wider">Lent (0.50x)</span>
+                            <span class="text-[0.6rem] text-slate-400 font-bold uppercase tracking-wider">Rapid (2.00x)</span>
+                        </div>
+                        <div class="relative w-full h-6 flex items-center mt-1">
+                            <div class="slider-progress" id="prog-mm-speed" style="background:#7c3aed;width:33.3%"></div>
+                            <input type="range" id="param-mm-speed" min="0.50" max="2.00" step="0.01" value="1.00" class="viralio-slider" oninput="updateSliderMM('mm-speed')">
+                        </div>
+                    </div>
+                    <!-- Pitch -->
+                    <div class="relative">
+                        <div class="flex justify-between items-end mb-1">
+                            <label class="text-sm font-bold text-slate-700">Înălțime Ton (Pitch)</label>
+                            <span id="mm-pitch-val" class="text-xs font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">0</span>
+                        </div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[0.6rem] text-slate-400 font-bold uppercase tracking-wider">Jos (-12)</span>
+                            <span class="text-[0.6rem] text-slate-400 font-bold uppercase tracking-wider">Sus (+12)</span>
+                        </div>
+                        <div class="relative w-full h-6 flex items-center mt-1">
+                            <div class="slider-progress" id="prog-mm-pitch" style="background:#2563eb;width:50%"></div>
+                            <input type="range" id="param-mm-pitch" min="-12" max="12" step="1" value="0" class="viralio-slider" oninput="updateSliderMM('mm-pitch')">
+                        </div>
+                    </div>
+                    <!-- Volume -->
+                    <div class="relative">
+                        <div class="flex justify-between items-end mb-1">
+                            <label class="text-sm font-bold text-slate-700">Volum</label>
+                            <span id="mm-vol-val" class="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">1.00</span>
+                        </div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[0.6rem] text-slate-400 font-bold uppercase tracking-wider">Minim (0.01)</span>
+                            <span class="text-[0.6rem] text-slate-400 font-bold uppercase tracking-wider">Maxim (10.0)</span>
+                        </div>
+                        <div class="relative w-full h-6 flex items-center mt-1">
+                            <div class="slider-progress" id="prog-mm-vol" style="background:#059669;width:10%"></div>
+                            <input type="range" id="param-mm-vol" min="0.01" max="10" step="0.01" value="1.00" class="viralio-slider" oninput="updateSliderMM('mm-vol')">
+                        </div>
+                    </div>
+                </div>
+
             </div>
 
             <div id="tab-history" class="hidden flex-col h-full overflow-hidden bg-white">
@@ -325,7 +419,7 @@
         </div>
         <div>
           <div class="vm-header-title">Alege Vocea</div>
-          <div class="vm-header-sub"><span id="vm-result-count">—</span> voci disponibile · Viralio AI</div>
+          <div class="vm-header-sub"><span id="vm-result-count">—</span> voci disponibile · <span id="vm-provider-label">Viralio AI</span></div>
         </div>
       </div>
       <button class="vm-close-btn" onclick="closeVoiceModal()" title="Închide"><i class="fa-solid fa-xmark"></i></button>
@@ -338,7 +432,8 @@
         <input id="vm-search-input" class="vm-search" placeholder="Caută după nume, stil, accent..." autocomplete="off" spellcheck="false">
         <span class="vm-search-kbd">⌘K</span>
       </div>
-      <div class="vm-filters" role="group">
+      <!-- ElevenLabs filters -->
+      <div id="vm-filters-el" class="vm-filters" role="group">
         <button class="vmf vmf-on" data-f="all"     onclick="setVmFilter('all')">⚡ Toate</button>
         <button class="vmf" data-f="male"    onclick="setVmFilter('male')">Masculine</button>
         <button class="vmf" data-f="female"  onclick="setVmFilter('female')">Feminine</button>
@@ -346,7 +441,18 @@
         <button class="vmf" data-f="mature"  onclick="setVmFilter('mature')">🎙 Maturi</button>
         <button class="vmf" data-f="shared"  onclick="setVmFilter('shared')">🌐 Comunitate</button>
         <button class="vmf" data-f="special" onclick="setVmFilter('special')">✨ Speciale</button>
-
+      </div>
+      <!-- Minimax filters -->
+      <div id="vm-filters-mm" class="vm-filters hidden" role="group">
+        <button class="vmf vmf-on" data-f="all"         onclick="setVmFilter('all')">⚡ Toate</button>
+        <button class="vmf" data-f="male"               onclick="setVmFilter('male')">Masculine</button>
+        <button class="vmf" data-f="female"             onclick="setVmFilter('female')">Feminine</button>
+        <button class="vmf" data-f="english"            onclick="setVmFilter('english')">Engleză</button>
+        <button class="vmf" data-f="romanian"           onclick="setVmFilter('romanian')">Română</button>
+        <button class="vmf" data-f="spanish"            onclick="setVmFilter('spanish')">Spaniolă</button>
+        <button class="vmf" data-f="portuguese"         onclick="setVmFilter('portuguese')">Portugheză</button>
+        <button class="vmf" data-f="japanese"           onclick="setVmFilter('japanese')">Japoneză</button>
+        <button class="vmf" data-f="korean"             onclick="setVmFilter('korean')">Coreeană</button>
       </div>
     </div>
 
@@ -372,7 +478,8 @@
   </div>
 </div>
 
-<!-- Voice data (external file) -->
+<!-- Voice data (external files) -->
+<script src="/minimax-voices.js"></script>
 <script src="/voices.js"></script>
 
 <script>
@@ -412,6 +519,8 @@ function logout(){ removeToken(); location.reload(); }
 
 window.onload = async()=>{
     updateSlider('stab'); updateSlider('sim'); updateSlider('speed');
+    updateSliderMM('mm-speed'); updateSliderMM('mm-pitch'); updateSliderMM('mm-vol');
+    updateStatusDot();
     renderHistory();
     // update voice count badge
     document.getElementById('vm-result-count').innerText = ALL_VOICES.length;
@@ -445,6 +554,73 @@ function switchTab(tab){
 }
 
 // ══════════════════════════════════════════════════════════════
+//  2b. STATUS DOTS
+// ══════════════════════════════════════════════════════════════
+const apiCallLog = []; // true=success, false=error
+function logApiCall(success){
+    apiCallLog.push(success);
+    if(apiCallLog.length>10) apiCallLog.shift();
+    updateStatusDot();
+}
+function updateStatusDot(){
+    const dot=document.getElementById('status-dot');
+    const lbl=document.getElementById('status-label');
+    if(!dot||!lbl) return;
+    if(!apiCallLog.length){ dot.style.background='#94a3b8'; lbl.innerText='N/A'; return; }
+    const last5=apiCallLog.slice(-5);
+    const errors=last5.filter(v=>!v).length;
+    const lastThree=apiCallLog.slice(-3);
+    const consecErrors=lastThree.every(v=>!v);
+    if(consecErrors || errors>=3){
+        dot.style.background='#ef4444'; lbl.innerText='Erori'; lbl.style.color='#ef4444';
+    } else if(errors>=1){
+        dot.style.background='#f59e0b'; lbl.innerText='Instabil'; lbl.style.color='#f59e0b';
+    } else {
+        dot.style.background='#22c55e'; lbl.innerText='OK'; lbl.style.color='#22c55e';
+    }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  2c. PROVIDER SWITCH
+// ══════════════════════════════════════════════════════════════
+let activeProvider = 'elevenlabs';
+// Separate active voice per provider
+let elVoice = 'Roger', elVoiceId = 'CwhRBWXzGAHq8TQ4Fs17';
+let mmVoice = 'Abbess', mmVoiceId = '209533299589205';
+
+function switchProvider(p){
+    activeProvider = p;
+    const isEL = p === 'elevenlabs';
+    // Toggle button styles
+    document.getElementById('prov-btn-el').className = 'flex-1 py-2 rounded-lg text-xs font-black transition-all ' +
+        (isEL ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400');
+    document.getElementById('prov-btn-mm').className = 'flex-1 py-2 rounded-lg text-xs font-black transition-all ' +
+        (!isEL ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-400');
+    // Show/hide param sections
+    document.getElementById('params-elevenlabs').classList.toggle('hidden', !isEL);
+    document.getElementById('params-minimax').classList.toggle('hidden', isEL);
+    // Update model label
+    const ml=document.getElementById('model-label');
+    if(ml) ml.innerHTML = isEL
+        ? '<i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Viralio 2.5 HD'
+        : '<i class="fa-solid fa-microchip text-purple-400 mr-1"></i> Minimax 2.6 HD';
+    // Restore voice for this provider
+    const name = isEL ? elVoice : mmVoice;
+    const vid  = isEL ? elVoiceId : mmVoiceId;
+    const voices = isEL ? ALL_VOICES : ALL_MINIMAX_VOICES;
+    const vo = voices.find(v=>v.id===vid);
+    const initials = name.replace(/[^A-Za-z ]/g,'').split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||name.substring(0,2).toUpperCase();
+    const col = vo ? (isEL ? vColor(vo) : mmColor(vo)) : (isEL ? '#6366f1' : '#7c3aed');
+    document.getElementById('active-voice-name').innerText = name;
+    document.getElementById('active-voice-badge').innerText = vo ? vo.style : '';
+    const av=document.getElementById('active-voice-avatar');
+    if(av){ av.innerText=initials; av.style.background=col; }
+    activeVoice = name; activeVoiceId = vid;
+    // Re-render modal grid
+    renderVoiceGrid();
+}
+
+// ══════════════════════════════════════════════════════════════
 //  3. SLIDERS
 // ══════════════════════════════════════════════════════════════
 function updateSlider(id){
@@ -459,6 +635,26 @@ function updateSlider(id){
     } else {
         if(disp) disp.innerText=val+'%';
         if(prog) prog.style.width=val+'%';
+    }
+}
+
+function updateSliderMM(id){
+    const el=document.getElementById(`param-${id}`); if(!el) return;
+    const val=parseFloat(el.value);
+    const prog=document.getElementById(`prog-${id}`);
+    const disp=document.getElementById(`${id}-val`);
+    if(id==='mm-speed'){
+        if(disp) disp.innerText=val.toFixed(2)+'x';
+        const pct=((val-0.5)/(2.0-0.5))*100;
+        if(prog) prog.style.width=pct+'%';
+    } else if(id==='mm-pitch'){
+        if(disp) disp.innerText=(val>=0?'+':'')+val;
+        const pct=((val-(-12))/(24))*100;
+        if(prog) prog.style.width=pct+'%';
+    } else if(id==='mm-vol'){
+        if(disp) disp.innerText=parseFloat(val).toFixed(2);
+        const pct=((val-0.01)/(9.99))*100;
+        if(prog) prog.style.width=pct+'%';
     }
 }
 
@@ -478,6 +674,12 @@ function openVoiceModal(){
     document.body.style.overflow='hidden';
     vmSearch='';
     document.getElementById('vm-search-input').value='';
+    // Arată filtrele corecte
+    const isMM = activeProvider==='minimax';
+    document.getElementById('vm-filters-el').classList.toggle('hidden', isMM);
+    document.getElementById('vm-filters-mm').classList.toggle('hidden', !isMM);
+    const sub=document.getElementById('vm-header-sub-count');
+    if(sub) sub.innerText=(isMM?ALL_MINIMAX_VOICES:ALL_VOICES).length;
     setVmFilter('all', false);
     renderVoiceGrid();
     setTimeout(()=>{ const s=document.getElementById('vm-search-input'); if(s) s.focus(); },350);
@@ -524,17 +726,19 @@ function togglePreview(vid, btn){
 
 function renderVoiceGrid(){
     const q=vmSearch.toLowerCase();
-    let list=[...ALL_VOICES];
+    const isMM = activeProvider === 'minimax';
+    const sourceList = isMM ? ALL_MINIMAX_VOICES : ALL_VOICES;
+    let list=[...sourceList];
 
-    // Filter by accent as well as tags
-    const accentFilters=['american','british','australian','spanish','french','indian','korean','japanese','german','italian','arabic','chinese','irish'];
+    // Filter
+    const accentFilters=['american','british','australian','spanish','french','indian','korean','japanese','german','italian','arabic','chinese','irish','romanian','portuguese'];
     if(accentFilters.includes(vmFilter))       list=list.filter(v=>v.accent===vmFilter);
     else if(vmFilter==='male')    list=list.filter(v=>v.gender==='male');
     else if(vmFilter==='female')  list=list.filter(v=>v.gender==='female');
     else if(vmFilter==='special') list=list.filter(v=>v.gender==='special');
-    else if(vmFilter==='shared')  list=list.filter(v=>v.tags.includes('shared'));
-    else if(vmFilter==='young')   list=list.filter(v=>v.tags.includes('young'));
-    else if(vmFilter==='mature')  list=list.filter(v=>v.tags.includes('mature'));
+    else if(vmFilter==='shared')  list=list.filter(v=>v.tags&&v.tags.includes('shared'));
+    else if(vmFilter==='young')   list=list.filter(v=>v.tags&&v.tags.includes('young'));
+    else if(vmFilter==='mature')  list=list.filter(v=>v.tags&&v.tags.includes('mature'));
 
     if(q) list=list.filter(v=>v.name.toLowerCase().includes(q)||v.style.toLowerCase().includes(q)||v.accent.toLowerCase().includes(q));
 
@@ -554,7 +758,7 @@ function renderVoiceGrid(){
     empty.style.display='none';
 
     grid.innerHTML=list.map((v,i)=>{
-        const col=vColor(v);
+        const col=isMM?mmColor(v):vColor(v);
         const initials=v.name.replace(/[^A-Za-zÀ-ž ]/g,'').split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||v.name.substring(0,2).toUpperCase();
         const isActive=v.id===activeVoiceId;
         const genderLabel=v.gender==='female'?'Feminin':v.gender==='male'?'Masculin':'Special';
@@ -584,17 +788,20 @@ function renderVoiceGrid(){
 
 function pickVoice(name, vid, style, gender){
     activeVoice=name; activeVoiceId=vid;
+    // Salvează per provider
+    if(activeProvider==='minimax'){ mmVoice=name; mmVoiceId=vid; }
+    else { elVoice=name; elVoiceId=vid; }
     const nameEl=document.getElementById('active-voice-name');
     const badgeEl=document.getElementById('active-voice-badge');
     const avEl=document.getElementById('active-voice-avatar');
     if(nameEl) nameEl.innerText=name;
     if(badgeEl) badgeEl.innerText=style;
     if(avEl){
-        const initials=name.replace(/[^A-Za-zÀ-ž ]/g,'').split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||name.substring(0,2).toUpperCase();
+        const initials=name.replace(/[^A-Za-z ]/g,'').split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||name.substring(0,2).toUpperCase();
         avEl.innerText=initials;
-        // Find voice object for color
-        const vo=ALL_VOICES.find(v=>v.id===vid);
-        avEl.style.background=vo?vColor(vo):'#6366f1';
+        const isMM = activeProvider==='minimax';
+        const vo=isMM ? ALL_MINIMAX_VOICES.find(v=>v.id===vid) : ALL_VOICES.find(v=>v.id===vid);
+        avEl.style.background=vo?(isMM?mmColor(vo):vColor(vo)):(isMM?'#7c3aed':'#6366f1');
     }
     stopPreview();
     closeVoiceModal();
@@ -657,26 +864,39 @@ async function processAudio(){
     const btn=document.getElementById('generateBtn');
     if(btn){ btn.classList.add('is-generating'); btn.disabled=true; }
     try{
-        // Timeout de 90s — dacă serverul nu răspunde, nu rămânem blocați la infinit
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 90000);
+        const timeoutId = setTimeout(() => controller.abort(), 120000);
         let res, data;
+        const isMM = activeProvider === 'minimax';
+        const body = isMM ? {
+            text, voice: activeVoice,
+            provider: 'minimax',
+            minimaxVoiceId: activeVoiceId,
+            speed: parseFloat(document.getElementById('param-mm-speed').value),
+            pitch: parseInt(document.getElementById('param-mm-pitch').value),
+            vol: parseFloat(document.getElementById('param-mm-vol').value),
+            language_boost: document.getElementById('param-lang').value
+        } : {
+            text, voice: activeVoice, voiceId: activeVoiceId,
+            stability: parseFloat(document.getElementById('param-stab').value)/100,
+            similarity_boost: parseFloat(document.getElementById('param-sim').value)/100,
+            speed: parseFloat(document.getElementById('param-speed').value)
+        };
         try {
             res = await fetch('/api/generate',{
                 method:'POST',
                 headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
-                body:JSON.stringify({ text, voice:activeVoice, voiceId:activeVoiceId,
-                    stability: parseFloat(document.getElementById('param-stab').value)/100,
-                    similarity_boost: parseFloat(document.getElementById('param-sim').value)/100,
-                    speed: parseFloat(document.getElementById('param-speed').value) }),
+                body: JSON.stringify(body),
                 signal: controller.signal
             });
         } catch(fetchErr) {
-            if(fetchErr.name === 'AbortError') throw new Error('Timeout — serverul nu a răspuns în 90s. Încearcă din nou.');
+            logApiCall(false);
+            if(fetchErr.name === 'AbortError') throw new Error('Timeout — serverul nu a răspuns. Încearcă din nou.');
             throw fetchErr;
         } finally { clearTimeout(timeoutId); }
         data = await res.json();
-        if(!res.ok) throw new Error(data.error||'Eroare la generare.');
+        if(!res.ok){ logApiCall(false); throw new Error(data.error||'Eroare la generare.'); }
+        logApiCall(true);
         launchPlayer(data.audioUrl, activeVoice, text);
         addToHistory(text, activeVoice, data.audioUrl);
         currentVoiceCharacters=data.remaining_chars||(currentVoiceCharacters-cost);
