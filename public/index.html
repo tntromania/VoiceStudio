@@ -79,6 +79,18 @@
         }
         .animate-shine-fast { animation: premiumShine 2.5s infinite cubic-bezier(0.4, 0, 0.2, 1); }
         .glass-premium-fin { box-shadow: 0 10px 30px -10px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.8); }
+
+        /* ── Task Cards ── */
+        .task-card { border-radius: 1.25rem; border: 1.5px solid #e2e8f0; background: #fff; overflow: hidden; transition: box-shadow 0.2s, border-color 0.2s; }
+        .task-card:focus-within { border-color: #a5b4fc; box-shadow: 0 0 0 4px rgba(99,102,241,0.08); }
+        .task-card.is-generating { border-color: #c7d2fe; }
+        .task-card.is-done { border-color: #bbf7d0; }
+        .task-card textarea { resize: none; width: 100%; background: transparent; border: none; outline: none; font-size: 0.95rem; font-weight: 500; line-height: 1.7; color: #1e293b; min-height: 120px; max-height: 200px; padding: 1rem 1.25rem; }
+        .task-card textarea::placeholder { color: #cbd5e1; }
+        .task-mini-player { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 1rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+        .task-mini-bar { flex: 1; height: 4px; background: #e2e8f0; border-radius: 99px; overflow: hidden; cursor: pointer; }
+        .task-mini-fill { height: 100%; background: #4f46e5; border-radius: 99px; width: 0%; transition: width 0.1s linear; pointer-events: none; }
+        .spin-sm { border: 2.5px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; width: 14px; height: 14px; animation: spin 0.8s linear infinite; display: inline-block; }
     </style>
 </head>
 <body class="md:p-4 selection:bg-viralio-500 selection:text-white">
@@ -129,39 +141,31 @@
     <!-- MAIN -->
     <main class="w-full max-w-6xl mx-auto pt-8 px-4 md:px-8 z-10 relative flex flex-col lg:flex-row gap-6 items-stretch flex-1">
         
-        <!-- SCRIPT EDITOR -->
+        <!-- MULTI-TASK STUDIO -->
         <div class="flex-1 flex flex-col bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden animate-slide-up">
+            <!-- Header -->
             <div class="px-6 md:px-8 pt-6 pb-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
                 <h2 class="text-lg font-black text-slate-900 flex items-center gap-2">
                     Studio Voce <span class="bg-indigo-100 text-indigo-600 text-[0.65rem] px-2 py-0.5 rounded-full uppercase tracking-widest font-bold">Pro</span>
                 </h2>
-                <div class="text-xs font-bold text-slate-400 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm">
-                    <span id="char-count" class="text-viralio-600 font-black">0</span> / 5000
-                </div>
-            </div>
-            <div class="flex-1 relative p-6 md:p-8 overflow-hidden bg-white min-h-[300px]">
-                <textarea id="script-input" class="w-full h-full bg-transparent border-none outline-none resize-none text-slate-800 text-[1.1rem] md:text-xl font-medium leading-relaxed placeholder:text-slate-300 no-scrollbar" placeholder="Lipește aici povestea ta. Modelul Eleven v3 va citi respectând intonația naturală..."></textarea>
-            </div>
-            <div class="px-6 md:px-8 py-5 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
-                <div class="flex gap-2 w-full sm:w-auto">
-                    <button onclick="clearText()" class="flex-1 sm:flex-none px-4 py-2.5 bg-white border border-slate-200 text-slate-500 hover:text-red-500 hover:border-red-200 hover:bg-red-50 rounded-xl text-sm font-bold shadow-sm transition-all flex justify-center items-center gap-2"><i class="fa-solid fa-eraser"></i> Curăță</button>
-                    <button onclick="pasteText()" class="flex-1 sm:flex-none px-4 py-2.5 bg-white border border-slate-200 text-slate-700 hover:text-viralio-600 hover:border-viralio-200 hover:bg-indigo-50 rounded-xl text-sm font-bold shadow-sm transition-all flex justify-center items-center gap-2"><i class="fa-solid fa-paste"></i> Lipește</button>
-                </div>
-                <div class="flex items-center justify-between w-full sm:w-auto gap-5">
-                    <div class="text-right">
-                        <p class="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Cost Generare</p>
-                        <p class="text-sm font-black text-amber-500 leading-none transition-colors" id="cost-container"><span id="char-cost">0</span> Litere</p>
-                    </div>
-                    <button id="generateBtn" onclick="processAudio()" class="px-8 py-3.5 bg-slate-900 text-white rounded-xl font-black text-sm shadow-[0_10px_20px_rgba(0,0,0,0.15)] hover:bg-viralio-600 hover:shadow-[0_10px_25px_rgba(79,70,229,0.3)] hover:-translate-y-1 transition-all flex items-center justify-center gap-2">
-                        <span class="btn-text flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> GENEREAZĂ</span>
-                        <div class="loader"></div>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs font-bold text-slate-400 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm" id="task-count-badge">
+                        <span id="task-count">1</span>/3 task-uri
+                    </span>
+                    <button onclick="addTask()" id="add-task-btn" class="px-3 py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-lg text-xs font-black shadow-sm transition-all flex items-center gap-1.5">
+                        <i class="fa-solid fa-plus"></i> Adaugă
                     </button>
                 </div>
+            </div>
+
+            <!-- Task List -->
+            <div id="task-list" class="flex-1 overflow-y-auto no-scrollbar p-4 md:p-6 space-y-4">
+                <!-- Tasks injected by JS -->
             </div>
         </div>
 
         <!-- SIDEBAR -->
-        <aside class="w-full lg:w-[420px] flex flex-col bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden animate-slide-up" style="animation-delay: 0.1s;">
+        <aside class="w-full lg:w-[420px] flex flex-col bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden animate-slide-up min-h-0" style="animation-delay: 0.1s;">
             <div class="flex border-b border-slate-100 bg-slate-50/50 px-4 pt-4 shrink-0">
                 <button onclick="switchTab('settings')" id="tab-btn-settings" class="flex-1 py-3 text-sm font-black border-b-2 border-viralio-600 text-viralio-600 transition-all">Parametrii AI</button>
                 <button onclick="switchTab('history')" id="tab-btn-history" class="flex-1 py-3 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all">Istoric Sesiune</button>
@@ -329,7 +333,7 @@
 
             </div>
 
-            <div id="tab-history" class="hidden flex-col h-full overflow-hidden bg-white">
+            <div id="tab-history" class="hidden flex-col flex-1 min-h-0 overflow-hidden bg-white">
                 <div class="flex justify-between items-center px-6 py-4 border-b border-slate-50 shrink-0">
                     <span class="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest">Istoric Cloud</span>
                     <button onclick="clearHistory()" class="text-[0.65rem] font-bold text-red-500 hover:text-red-600 uppercase transition-colors">Șterge tot</button>
@@ -518,6 +522,8 @@ function updateUI(user){
 function logout(){ removeToken(); location.reload(); }
 
 window.onload = async()=>{
+    // Inițializăm cu un task default
+    addTask();
     updateSlider('stab'); updateSlider('sim'); updateSlider('speed');
     updateSliderMM('mm-speed'); updateSliderMM('mm-pitch'); updateSliderMM('mm-vol');
     renderHistory();
@@ -911,49 +917,197 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 
 // ══════════════════════════════════════════════════════════════
-//  5. EDITOR & CREDITE
+//  5. MULTI-TASK SYSTEM (max 3 task-uri simultane)
 // ══════════════════════════════════════════════════════════════
-const textInput=document.getElementById('script-input');
+let tasks = [];
+let taskIdCounter = 0;
+const MAX_TASKS = 3;
+
 function getRealCharCount(text){ return text.replace(/\s+/g,'').length; }
 
-function checkFunds(){
-    if(!textInput) return;
-    const cost=getRealCharCount(textInput.value);
-    const cc=document.getElementById('cost-container');
-    if(!cc) return;
-    if(getToken()&&cost>currentVoiceCharacters) cc.classList.replace('text-amber-500','text-red-500');
-    else cc.classList.replace('text-red-500','text-amber-500');
+function addTask(){
+    if(tasks.length >= MAX_TASKS){ showToast(`⚠️ Maxim ${MAX_TASKS} task-uri simultane!`); return; }
+    const id = ++taskIdCounter;
+    tasks.push({ id, text: '', status: 'idle', audioUrl: null, audio: null });
+    renderTasks();
 }
 
-if(textInput){
-    textInput.addEventListener('input',()=>{
-        let text=textInput.value;
-        if(text.length>5000){ textInput.value=text.substring(0,5000); text=textInput.value; }
-        const real=getRealCharCount(text);
-        const cc=document.getElementById('char-count');
-        if(cc){ cc.innerText=real; cc.className=real>4500?'text-red-500 font-black':'text-viralio-600 font-black'; }
-        const cco=document.getElementById('char-cost');
-        if(cco) cco.innerText=real.toLocaleString('ro-RO');
-        checkFunds();
+function removeTask(id){
+    const t = tasks.find(t=>t.id===id);
+    if(t && t.audio){ t.audio.pause(); t.audio=null; }
+    tasks = tasks.filter(t=>t.id!==id);
+    if(tasks.length===0) addTask(); // păstrăm mereu minim 1
+    renderTasks();
+}
+
+function updateTaskText(id, val){
+    const t = tasks.find(t=>t.id===id);
+    if(t){ t.text = val; updateTaskCounters(id); }
+}
+
+function updateTaskCounters(id){
+    const t = tasks.find(t=>t.id===id);
+    if(!t) return;
+    const real = getRealCharCount(t.text);
+    const cc = document.getElementById(`cc-${id}`);
+    if(cc){ cc.innerText = real; cc.className = real>4500?'text-red-500 font-black':'text-viralio-600 font-black'; }
+    const co = document.getElementById(`cost-${id}`);
+    if(co) co.innerText = real.toLocaleString('ro-RO');
+    // cost color
+    const cw = document.getElementById(`costwrap-${id}`);
+    if(cw){
+        if(getToken()&&real>currentVoiceCharacters) cw.className='text-sm font-black text-red-500 leading-none transition-colors';
+        else cw.className='text-sm font-black text-amber-500 leading-none transition-colors';
+    }
+}
+
+function renderTasks(){
+    const box = document.getElementById('task-list');
+    if(!box) return;
+    box.innerHTML = '';
+    tasks.forEach((t,i) => {
+        const el = document.createElement('div');
+        el.className = `task-card${t.status==='generating'?' is-generating':t.status==='done'?' is-done':''}`;
+        el.id = `task-card-${t.id}`;
+
+        const isGen = t.status === 'generating';
+        const isDone = t.status === 'done';
+        const canRemove = tasks.length > 1;
+        const taskLabel = `Task ${i+1}`;
+
+        el.innerHTML = `
+            <div class="flex items-center justify-between px-4 pt-3 pb-1">
+                <span class="text-[0.65rem] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    ${taskLabel}
+                    ${isGen ? '<span class="text-indigo-500 flex items-center gap-1"><span class="spin-sm"></span> Generez...</span>' : ''}
+                    ${isDone ? '<span class="text-emerald-500"><i class="fa-solid fa-check-circle"></i> Gata</span>' : ''}
+                </span>
+                <div class="flex items-center gap-2">
+                    <span class="text-[0.65rem] font-bold text-slate-400 bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-md">
+                        <span id="cc-${t.id}" class="text-viralio-600 font-black">0</span>/5000
+                    </span>
+                    ${canRemove ? `<button onclick="removeTask(${t.id})" class="w-6 h-6 rounded-md bg-slate-50 hover:bg-red-50 hover:text-red-500 text-slate-400 transition-all flex items-center justify-center text-xs border border-slate-100"><i class="fa-solid fa-xmark"></i></button>` : ''}
+                </div>
+            </div>
+            <textarea id="ta-${t.id}" placeholder="Lipește textul pentru ${taskLabel}..." ${isGen?'disabled':''} oninput="updateTaskText(${t.id},this.value)">${t.text}</textarea>
+            <div class="flex items-center justify-between px-4 py-2.5 border-t border-slate-50 bg-slate-50/50 gap-3">
+                <div class="flex gap-2">
+                    <button onclick="clearTaskText(${t.id})" class="px-3 py-1.5 bg-white border border-slate-200 text-slate-500 hover:text-red-500 hover:border-red-200 hover:bg-red-50 rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1.5" ${isGen?'disabled':''}><i class="fa-solid fa-eraser"></i></button>
+                    <button onclick="pasteTaskText(${t.id})" class="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 hover:text-viralio-600 hover:border-viralio-200 hover:bg-indigo-50 rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1.5" ${isGen?'disabled':''}><i class="fa-solid fa-paste"></i></button>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="text-right">
+                        <p class="text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest leading-none mb-0.5">Cost</p>
+                        <p id="costwrap-${t.id}" class="text-sm font-black text-amber-500 leading-none"><span id="cost-${t.id}">0</span> Lit.</p>
+                    </div>
+                    <button id="genbtn-${t.id}" onclick="processTaskAudio(${t.id})" class="px-5 py-2.5 ${isGen?'bg-indigo-300 cursor-not-allowed':'bg-slate-900 hover:bg-viralio-600 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(79,70,229,0.3)]'} text-white rounded-xl font-black text-xs shadow-md transition-all flex items-center justify-center gap-1.5" ${isGen?'disabled':''}>
+                        <i class="fa-solid fa-wand-magic-sparkles text-amber-300 text-[0.65rem]"></i>
+                        ${isGen ? 'Generez...' : 'GENEREAZĂ'}
+                    </button>
+                </div>
+            </div>
+            ${isDone && t.audioUrl ? `
+            <div class="task-mini-player">
+                <button onclick="toggleTaskAudio(${t.id})" id="tplay-${t.id}" class="w-8 h-8 shrink-0 rounded-full bg-slate-900 text-white flex items-center justify-center text-[0.65rem] hover:bg-viralio-600 transition-all shadow-sm">
+                    <i class="fa-solid fa-play ml-0.5" id="tplay-icon-${t.id}"></i>
+                </button>
+                <div class="task-mini-bar" onclick="seekTaskAudio(${t.id},event)" id="tbar-${t.id}">
+                    <div class="task-mini-fill" id="tfill-${t.id}"></div>
+                </div>
+                <span id="ttime-${t.id}" class="text-[0.6rem] font-bold text-slate-400 font-mono w-8">0:00</span>
+                <a href="${t.audioUrl}" download="viralio_${t.id}.mp3" class="w-7 h-7 shrink-0 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-viralio-600 hover:bg-viralio-600 hover:text-white transition-all text-xs"><i class="fa-solid fa-download"></i></a>
+                <button onclick="launchPlayer('${t.audioUrl}','${activeVoice}','${(t.text||'').substring(0,30).replace(/'/g,"\\'")}'); showToast('▶ Redau în player principal')" class="w-7 h-7 shrink-0 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-all text-xs" title="Deschide în player principal"><i class="fa-solid fa-expand"></i></button>
+            </div>` : ''}
+        `;
+        box.appendChild(el);
+        // restore counters
+        updateTaskCounters(t.id);
     });
+
+    // update header badge
+    const tc = document.getElementById('task-count');
+    if(tc) tc.innerText = tasks.length;
+    const addBtn = document.getElementById('add-task-btn');
+    if(addBtn) addBtn.disabled = tasks.length >= MAX_TASKS;
+    if(addBtn) addBtn.classList.toggle('opacity-40', tasks.length >= MAX_TASKS);
+
+    // re-bind audio events for done tasks
+    tasks.filter(t=>t.status==='done'&&t.audio).forEach(t => bindTaskAudioEvents(t));
 }
 
-function clearText(){ if(textInput){ textInput.value=''; textInput.dispatchEvent(new Event('input')); } }
-async function pasteText(){ try{ if(textInput){ textInput.value+=await navigator.clipboard.readText(); textInput.dispatchEvent(new Event('input')); } }catch(e){} }
+function clearTaskText(id){
+    const t = tasks.find(t=>t.id===id);
+    if(t){ t.text=''; const ta=document.getElementById(`ta-${id}`); if(ta){ta.value=''; ta.dispatchEvent(new Event('input'));} updateTaskCounters(id); }
+}
+async function pasteTaskText(id){
+    try {
+        const txt = await navigator.clipboard.readText();
+        const t = tasks.find(t=>t.id===id);
+        if(t && txt){ t.text+=txt; const ta=document.getElementById(`ta-${id}`); if(ta){ta.value=t.text; ta.dispatchEvent(new Event('input'));} updateTaskCounters(id); }
+    } catch(e){}
+}
+
+// ── Mini player per task ──
+function bindTaskAudioEvents(t){
+    if(!t.audio) return;
+    t.audio.ontimeupdate = () => {
+        if(!t.audio.duration) return;
+        const pct = (t.audio.currentTime/t.audio.duration)*100;
+        const fill = document.getElementById(`tfill-${t.id}`);
+        if(fill) fill.style.width = pct+'%';
+        const time = document.getElementById(`ttime-${t.id}`);
+        if(time) time.innerText = formatTime(t.audio.currentTime);
+    };
+    t.audio.onended = () => {
+        const icon = document.getElementById(`tplay-icon-${t.id}`);
+        if(icon){ icon.className='fa-solid fa-play ml-0.5'; }
+    };
+    t.audio.onplay = () => {
+        const icon = document.getElementById(`tplay-icon-${t.id}`);
+        if(icon) icon.className='fa-solid fa-pause';
+    };
+    t.audio.onpause = () => {
+        const icon = document.getElementById(`tplay-icon-${t.id}`);
+        if(icon){ icon.className='fa-solid fa-play ml-0.5'; }
+    };
+}
+
+function toggleTaskAudio(id){
+    const t = tasks.find(t=>t.id===id);
+    if(!t||!t.audio) return;
+    t.audio.paused ? t.audio.play() : t.audio.pause();
+}
+function seekTaskAudio(id, e){
+    const t = tasks.find(t=>t.id===id);
+    if(!t||!t.audio) return;
+    const bar = document.getElementById(`tbar-${id}`);
+    if(!bar) return;
+    const r = bar.getBoundingClientRect();
+    t.audio.currentTime = ((e.clientX-r.left)/r.width)*t.audio.duration;
+}
 
 // ══════════════════════════════════════════════════════════════
-//  6. API GENERARE
+//  6. API GENERARE (per task)
 // ══════════════════════════════════════════════════════════════
-async function processAudio(){
+// legacy alias (folosit de player callbacks)
+const textInput = { value: '' };
+
+function checkFunds(){}
+
+async function processTaskAudio(id){
     const token=getToken();
     if(!token){ openLoginModal(); return; }
-    if(!textInput) return;
-    const text=textInput.value.trim();
+    const t = tasks.find(t=>t.id===id);
+    if(!t) return;
+    const text = t.text.trim();
     if(!text) return alert('Scrie text pentru a genera vocea.');
-    const cost=getRealCharCount(text);
+    const cost = getRealCharCount(text);
     if(cost>currentVoiceCharacters){ alert(`Nu ai suficiente caractere! Ai nevoie de ${cost}, dar mai ai doar ${currentVoiceCharacters}.`); return; }
-    const btn=document.getElementById('generateBtn');
-    if(btn){ btn.classList.add('is-generating'); btn.disabled=true; }
+
+    // Setează status generating
+    t.status = 'generating';
+    renderTasks();
+
     try{
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 90000);
@@ -983,45 +1137,51 @@ async function processAudio(){
         } catch(fetchErr) {
             clearTimeout(timeoutId);
             await logApiCall(false);
-            const errMsg = fetchErr.name==='AbortError'
-                ? 'Timeout 90s — serverul nu a răspuns.'
-                : fetchErr.message;
-            console.error('[Viralio] Eroare fetch:', errMsg, fetchErr);
-            // Auto-switch la celalalt provider
+            const errMsg = fetchErr.name==='AbortError' ? 'Timeout 90s — serverul nu a răspuns.' : fetchErr.message;
             const fallback = activeProvider==='elevenlabs' ? 'minimax' : 'elevenlabs';
-            console.warn(`[Viralio] Auto-switch la ${fallback}`);
             switchProvider(fallback);
-            showToast(`❌ Eroare ${activeProvider==='minimax'?'ElevenLabs':'Minimax'} — am comutat automat la ${fallback.charAt(0).toUpperCase()+fallback.slice(1)}`);
-            return;
+            showToast(`❌ ${errMsg} — am comutat la ${fallback.charAt(0).toUpperCase()+fallback.slice(1)}`);
+            t.status = 'idle'; renderTasks(); return;
         } finally { clearTimeout(timeoutId); }
+
         data = await res.json();
         if(!res.ok){
             await logApiCall(false);
             const errMsg = data.error || `Eroare HTTP ${res.status}`;
-            console.error('[Viralio] Eroare API:', res.status, errMsg, data);
-            // Auto-switch la celalalt provider
             const fallback = activeProvider==='elevenlabs' ? 'minimax' : 'elevenlabs';
-            console.warn(`[Viralio] Auto-switch la ${fallback}`);
             switchProvider(fallback);
             showToast(`❌ ${errMsg} — am comutat la ${fallback.charAt(0).toUpperCase()+fallback.slice(1)}`);
-            return;
+            t.status = 'idle'; renderTasks(); return;
         }
+
         await logApiCall(true);
-        console.log(`[Viralio] ✅ Generat cu ${activeProvider} — ${data.audioUrl}`);
-        launchPlayer(data.audioUrl, activeVoice, text);
+        t.status = 'done';
+        t.audioUrl = data.audioUrl;
+        t.audio = new Audio(data.audioUrl);
+        renderTasks();
+        bindTaskAudioEvents(t);
+        // Auto-play în mini player
+        setTimeout(()=>t.audio.play().catch(()=>{}), 100);
+
         addToHistory(text, activeVoice, data.audioUrl);
-        currentVoiceCharacters=data.remaining_chars||(currentVoiceCharacters-cost);
+        currentVoiceCharacters = data.remaining_chars||(currentVoiceCharacters-cost);
         const nc=document.getElementById('nav-chars');
         if(nc) nc.innerText=currentVoiceCharacters.toLocaleString('ro-RO');
-        checkFunds();
+
     } catch(e){
         await logApiCall(false);
-        console.error('[Viralio] Eroare generare:', e.message, e);
-        alert(e.message);
-    } finally {
-        if(btn){ btn.classList.remove('is-generating'); btn.disabled=false; }
+        showToast('❌ Eroare: '+e.message);
+        t.status = 'idle'; renderTasks();
     }
 }
+
+// processAudio() — kept for compatibility
+async function processAudio(){
+    if(tasks.length>0) processTaskAudio(tasks[0].id);
+}
+
+function clearText(){ clearTaskText(tasks[0]?.id); }
+async function pasteText(){ await pasteTaskText(tasks[0]?.id); }
 
 // Toast notification simplu
 function showToast(msg){
