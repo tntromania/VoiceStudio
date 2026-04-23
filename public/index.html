@@ -81,11 +81,11 @@
         .glass-premium-fin { box-shadow: 0 10px 30px -10px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.8); }
 
         /* ── Task Cards ── */
-        .task-card { border-radius: 1.25rem; border: 1.5px solid #e2e8f0; background: #fff; overflow: hidden; transition: box-shadow 0.2s, border-color 0.2s; }
+        .task-card { border-radius: 1.25rem; border: 1.5px solid #e2e8f0; background: #fff; overflow: hidden; transition: box-shadow 0.2s, border-color 0.2s; flex: 1; min-height: 0; }
         .task-card:focus-within { border-color: #a5b4fc; box-shadow: 0 0 0 4px rgba(99,102,241,0.08); }
         .task-card.is-generating { border-color: #c7d2fe; }
         .task-card.is-done { border-color: #bbf7d0; }
-        .task-card textarea { resize: none; width: 100%; background: transparent; border: none; outline: none; font-size: 0.95rem; font-weight: 500; line-height: 1.7; color: #1e293b; min-height: 120px; max-height: 200px; padding: 1rem 1.25rem; }
+        .task-card textarea { resize: none; width: 100%; flex: 1; min-height: 0; background: transparent; border: none; outline: none; font-size: 0.95rem; font-weight: 500; line-height: 1.7; color: #1e293b; padding: 1rem 1.25rem; }
         .task-card textarea::placeholder { color: #cbd5e1; }
         .task-mini-player { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 1rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
         .task-mini-bar { flex: 1; height: 4px; background: #e2e8f0; border-radius: 99px; overflow: hidden; cursor: pointer; }
@@ -159,13 +159,13 @@
             </div>
 
             <!-- Task List -->
-            <div id="task-list" class="flex-1 overflow-y-auto no-scrollbar p-4 md:p-6 space-y-4">
+            <div id="task-list" class="flex-1 overflow-y-auto no-scrollbar p-4 md:p-6 flex flex-col gap-4 min-h-0">
                 <!-- Tasks injected by JS -->
             </div>
         </div>
 
         <!-- SIDEBAR -->
-        <aside class="w-full lg:w-[420px] flex flex-col bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden animate-slide-up min-h-0" style="animation-delay: 0.1s;">
+        <aside class="w-full lg:w-[420px] flex flex-col bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden animate-slide-up min-h-0 lg:sticky lg:top-[5.5rem]" style="animation-delay: 0.1s; max-height: calc(100vh - 7rem);">
             <div class="flex border-b border-slate-100 bg-slate-50/50 px-4 pt-4 shrink-0">
                 <button onclick="switchTab('settings')" id="tab-btn-settings" class="flex-1 py-3 text-sm font-black border-b-2 border-viralio-600 text-viralio-600 transition-all">Parametrii AI</button>
                 <button onclick="switchTab('history')" id="tab-btn-history" class="flex-1 py-3 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all">Istoric Sesiune</button>
@@ -967,7 +967,7 @@ function renderTasks(){
     box.innerHTML = '';
     tasks.forEach((t,i) => {
         const el = document.createElement('div');
-        el.className = `task-card${t.status==='generating'?' is-generating':t.status==='done'?' is-done':''}`;
+        el.className = `task-card flex flex-col${t.status==='generating'?' is-generating':t.status==='done'?' is-done':''}`;
         el.id = `task-card-${t.id}`;
 
         const isGen = t.status === 'generating';
@@ -989,7 +989,7 @@ function renderTasks(){
                     ${canRemove ? `<button onclick="removeTask(${t.id})" class="w-6 h-6 rounded-md bg-slate-50 hover:bg-red-50 hover:text-red-500 text-slate-400 transition-all flex items-center justify-center text-xs border border-slate-100"><i class="fa-solid fa-xmark"></i></button>` : ''}
                 </div>
             </div>
-            <textarea id="ta-${t.id}" placeholder="Lipește textul pentru ${taskLabel}..." ${isGen?'disabled':''} oninput="updateTaskText(${t.id},this.value)">${t.text}</textarea>
+            <textarea id="ta-${t.id}" placeholder="Lipește textul pentru ${taskLabel}..." ${isGen?'disabled':''} oninput="updateTaskText(${t.id},this.value)" style="flex:1;min-height:0;display:block">${t.text}</textarea>
             <div class="flex items-center justify-between px-4 py-2.5 border-t border-slate-50 bg-slate-50/50 gap-3">
                 <div class="flex gap-2">
                     <button onclick="clearTaskText(${t.id})" class="px-3 py-1.5 bg-white border border-slate-200 text-slate-500 hover:text-red-500 hover:border-red-200 hover:bg-red-50 rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1.5" ${isGen?'disabled':''}><i class="fa-solid fa-eraser"></i></button>
