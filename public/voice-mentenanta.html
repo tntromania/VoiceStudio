@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Viralio Voice AI — Se actualizează</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Space+Mono:wght@400;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png?v=3">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png?v=3">
+<link rel="shortcut icon" href="/assets/favicon.ico?v=3">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #04050f;
+    --surface: #0a0c1e;
+    --border: rgba(255,255,255,0.06);
+    --accent: #6c63ff;
+    --accent2: #ff3cac;
+    --accent3: #00f5c4;
+    --text: #e8eaf6;
+    --muted: #3a3d5c;
+  }
+  html, body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  body::after {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    background-size: 180px 180px;
+    pointer-events: none; opacity: 0.5;
+  }
+  .aurora { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+  .aurora span { position: absolute; border-radius: 50%; filter: blur(130px); opacity: 0.1; }
+  .aurora span:nth-child(1) { width: 800px; height: 800px; background: var(--accent); top: -300px; left: -200px; animation: drift1 22s ease-in-out infinite alternate; }
+  .aurora span:nth-child(2) { width: 600px; height: 600px; background: var(--accent2); bottom: -200px; right: -150px; animation: drift2 17s ease-in-out infinite alternate; opacity: 0.08; }
+  .aurora span:nth-child(3) { width: 350px; height: 350px; background: var(--accent3); top: 50%; left: 50%; transform: translate(-50%,-50%); animation: drift3 28s ease-in-out infinite alternate; opacity: 0.05; }
+  @keyframes drift1 { 0%{transform:translate(0,0)} 100%{transform:translate(80px,60px)} }
+  @keyframes drift2 { 0%{transform:translate(0,0)} 100%{transform:translate(-60px,-80px)} }
+  @keyframes drift3 { 0%{transform:translate(-50%,-50%) scale(1)} 100%{transform:translate(-45%,-55%) scale(1.3)} }
+  .grid-bg {
+    position: fixed; inset: 0; z-index: 0;
+    background-image: linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+    background-size: 64px 64px; pointer-events: none;
+  }
+  .topbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.1rem 2rem;
+    border-bottom: 1px solid var(--border);
+    background: rgba(4,5,15,0.75);
+    backdrop-filter: blur(24px);
+  }
+  .logo {
+    display: flex; align-items: center; gap: 0.65rem;
+    font-family: 'Syne', sans-serif;
+    font-size: 1.05rem; font-weight: 800;
+    color: var(--text); text-decoration: none; letter-spacing: -0.03em;
+  }
+  .logo-icon {
+    width: 2rem; height: 2rem; border-radius: 0.55rem;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; color: white;
+    box-shadow: 0 0 24px rgba(108,99,255,0.45);
+  }
+  .status-chip {
+    display: flex; align-items: center; gap: 0.45rem;
+    padding: 0.3rem 0.8rem; border-radius: 99px;
+    border: 1px solid rgba(255,200,0,0.25);
+    background: rgba(255,200,0,0.06);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.58rem; font-weight: 700;
+    color: #ffd700; letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .status-chip .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #ffd700; box-shadow: 0 0 8px #ffd700;
+    animation: blink 1.5s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .page {
+    position: relative; z-index: 10;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 7rem 1.5rem 5rem;
+    text-align: center;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    padding: 0.4rem 1rem; border-radius: 99px;
+    border: 1px solid rgba(108,99,255,0.3);
+    background: rgba(108,99,255,0.08);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem; font-weight: 700;
+    color: #a5a3ff; letter-spacing: 0.1em; text-transform: uppercase;
+    margin-bottom: 2rem;
+    animation: fadeUp 0.6s ease both;
+  }
+  .headline {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.8rem, 8vw, 5.5rem);
+    font-weight: 800; line-height: 1.0;
+    letter-spacing: -0.04em; margin-bottom: 1.5rem;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+  .headline .line1 { display: block; color: var(--text); }
+  .headline .line2 {
+    display: block;
+    background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent3));
+    background-size: 200% auto;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    animation: fadeUp 0.6s 0.1s ease both, shimmer 4s linear infinite;
+  }
+  @keyframes shimmer { 0%{background-position:0% 50%} 100%{background-position:200% 50%} }
+  .subtitle {
+    font-size: clamp(0.9rem, 2.5vw, 1.05rem); font-weight: 400;
+    color: rgba(232,234,246,0.4); max-width: 480px; line-height: 1.75;
+    margin-bottom: 2.5rem;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+  .progress-card {
+    width: 100%; max-width: 460px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 1.5rem; padding: 1.75rem;
+    margin-bottom: 2rem;
+    animation: fadeUp 0.6s 0.3s ease both;
+    box-shadow: 0 0 0 1px rgba(108,99,255,0.08), 0 40px 80px -20px rgba(0,0,0,0.5);
+    position: relative; overflow: hidden;
+  }
+  .progress-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(108,99,255,0.6), rgba(255,60,172,0.4), transparent);
+  }
+  .progress-label {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 0.75rem;
+  }
+  .progress-label span:first-child {
+    font-size: 0.7rem; font-weight: 700; color: rgba(232,234,246,0.45);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    font-family: 'Space Mono', monospace;
+  }
+  .progress-label span:last-child {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem; font-weight: 700; color: var(--accent3);
+  }
+  .progress-bar-wrap {
+    height: 6px; background: rgba(255,255,255,0.05);
+    border-radius: 99px; overflow: hidden; margin-bottom: 1.5rem;
+  }
+  .progress-bar-fill {
+    height: 100%; border-radius: 99px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    width: 0%; transition: width 1s cubic-bezier(0.16,1,0.3,1);
+    box-shadow: 0 0 12px rgba(108,99,255,0.5);
+  }
+  .tasks { display: flex; flex-direction: column; gap: 0.55rem; }
+  .task-item {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.65rem 0.8rem; border-radius: 0.75rem;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.04);
+    font-size: 0.75rem; font-weight: 500;
+    color: rgba(232,234,246,0.35);
+    transition: all 0.4s ease;
+  }
+  .task-item.done { color: rgba(232,234,246,0.7); border-color: rgba(0,245,196,0.15); background: rgba(0,245,196,0.04); }
+  .task-item.active { color: var(--text); border-color: rgba(108,99,255,0.25); background: rgba(108,99,255,0.06); }
+  .task-icon {
+    width: 1.5rem; height: 1.5rem; flex-shrink: 0;
+    border-radius: 0.4rem; display: flex; align-items: center; justify-content: center;
+    font-size: 0.6rem;
+  }
+  .task-item.done .task-icon { background: rgba(0,245,196,0.15); color: var(--accent3); }
+  .task-item.active .task-icon { background: rgba(108,99,255,0.2); color: #a5a3ff; }
+  .task-item:not(.done):not(.active) .task-icon { background: rgba(255,255,255,0.04); color: var(--muted); }
+  .waveform-wrap { display: flex; align-items: center; gap: 3px; margin-left: auto; }
+  .wv-bar { width: 3px; border-radius: 99px; background: linear-gradient(180deg, var(--accent), var(--accent2)); height: 4px; }
+  .task-item.active .wv-bar { animation: wvBounce 0.7s ease-in-out infinite alternate; }
+  .wv-bar:nth-child(1){animation-delay:0s} .wv-bar:nth-child(2){animation-delay:0.15s}
+  .wv-bar:nth-child(3){animation-delay:0.05s} .wv-bar:nth-child(4){animation-delay:0.2s}
+  .wv-bar:nth-child(5){animation-delay:0.1s}
+  @keyframes wvBounce { 0%{height:4px} 100%{height:16px} }
+  .check-icon { margin-left: auto; font-size: 0.6rem; color: var(--accent3); }
+  .eta-row {
+    display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.62rem; color: rgba(232,234,246,0.28);
+    letter-spacing: 0.05em;
+    animation: fadeUp 0.6s 0.4s ease both;
+    margin-bottom: 1.25rem;
+  }
+  .counter-wrap {
+    display: flex; gap: 1.5rem; align-items: center;
+    animation: fadeUp 0.6s 0.5s ease both;
+    margin-bottom: 2.5rem;
+  }
+  .counter-item { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; }
+  .counter-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 2rem; font-weight: 700; color: var(--text);
+    line-height: 1; min-width: 2.5ch; text-align: center;
+  }
+  .counter-label { font-size: 0.52rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+  .counter-sep { font-family: 'Space Mono', monospace; font-size: 2rem; color: var(--muted); line-height: 1; animation: blink 1s infinite; }
+  .social-row { display: flex; gap: 0.75rem; animation: fadeUp 0.6s 0.6s ease both; }
+  .social-btn {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.6rem 1.1rem; border-radius: 0.75rem;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.03);
+    color: rgba(232,234,246,0.45);
+    font-size: 0.72rem; font-weight: 600;
+    text-decoration: none; transition: all 0.2s ease;
+  }
+  .social-btn:hover { background: rgba(255,255,255,0.07); color: var(--text); border-color: rgba(255,255,255,0.12); transform: translateY(-2px); }
+  .social-btn.discord:hover { border-color: rgba(88,101,242,0.4); color: #7289da; }
+  .social-btn.telegram:hover { border-color: rgba(0,136,204,0.4); color: #00aaff; }
+  .ticker-wrap {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+    border-top: 1px solid var(--border);
+    background: rgba(4,5,15,0.92);
+    backdrop-filter: blur(20px);
+    padding: 0.6rem 0; overflow: hidden;
+  }
+  .ticker-track {
+    display: flex; gap: 4rem; width: max-content;
+    animation: ticker 35s linear infinite; white-space: nowrap;
+  }
+  .ticker-item {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.58rem; font-weight: 700;
+    color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase;
+  }
+  .ticker-item .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+  .ticker-item.hot { color: rgba(255,60,172,0.55); }
+  .ticker-item.hot .dot { background: var(--accent2); }
+  @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+  .corner { position: fixed; pointer-events: none; font-family: 'Space Mono', monospace; font-size: 0.52rem; color: var(--muted); letter-spacing: 0.06em; line-height: 1.6; }
+  .corner.tl { top: 5rem; left: 1.5rem; }
+  .corner.tr { top: 5rem; right: 1.5rem; text-align: right; }
+  @media (max-width: 640px) { .corner { display: none; } }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+</style>
+</head>
+<body>
+
+<div class="aurora"><span></span><span></span><span></span></div>
+<div class="grid-bg"></div>
+
+<nav class="topbar">
+  <a href="#" class="logo">
+    <div class="logo-icon"><i class="fa-solid fa-bolt"></i></div>
+    Viralio <span style="font-weight:400;color:rgba(232,234,246,0.3);margin-left:0.4rem;font-size:0.85rem;">Voice AI</span>
+  </a>
+  <div class="status-chip">
+    <div class="dot"></div>
+    Actualizare în curs
+  </div>
+</nav>
+
+<div class="corner tl">VIRALIO.RO<br>VOICE STUDIO v2.6</div>
+<div class="corner tr" id="live-time">—</div>
+
+<main class="page">
+
+  <div class="badge">
+    <i class="fa-solid fa-wrench"></i>
+    Maintenance Mode · Revenim în curând
+  </div>
+
+  <h1 class="headline">
+    <span class="line1">Se Instalează</span>
+    <span class="line2">Ceva Nou</span>
+  </h1>
+
+  <p class="subtitle">
+    Adăugăm voci noi, îmbunătățim motorul AI și optimizăm experiența.<br>
+    Ne întoarcem mai puternici ca niciodată.
+  </p>
+
+  <div class="progress-card">
+    <div class="progress-label">
+      <span>Progres actualizare</span>
+      <span id="pct-label">45%</span>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progress-fill"></div>
+    </div>
+    <div class="tasks">
+      <div class="task-item done">
+        <div class="task-icon"><i class="fa-solid fa-check"></i></div>
+        <span>Backup complet bază de date</span>
+        <i class="fa-solid fa-check check-icon"></i>
+      </div>
+      <div class="task-item done">
+        <div class="task-icon"><i class="fa-solid fa-check"></i></div>
+        <span>Instalare motor Minimax Speech 2.6 HD</span>
+        <i class="fa-solid fa-check check-icon"></i>
+      </div>
+      <div class="task-item active" id="task-active">
+        <div class="task-icon"><i class="fa-solid fa-microphone"></i></div>
+        <span>Generare preview-uri voci în română</span>
+        <div class="waveform-wrap">
+          <div class="wv-bar"></div><div class="wv-bar"></div><div class="wv-bar"></div>
+          <div class="wv-bar"></div><div class="wv-bar"></div>
+        </div>
+      </div>
+      <div class="task-item">
+        <div class="task-icon"><i class="fa-solid fa-flask"></i></div>
+        <span>Testare calitate audio finală</span>
+      </div>
+      <div class="task-item">
+        <div class="task-icon"><i class="fa-solid fa-rocket"></i></div>
+        <span>Deploy & reactivare platformă</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="eta-row">
+    <i class="fa-regular fa-clock"></i>
+    Estimat finalizare în:
+  </div>
+
+  <div class="counter-wrap">
+    <div class="counter-item">
+      <div class="counter-num" id="cnt-h">02</div>
+      <div class="counter-label">Ore</div>
+    </div>
+    <div class="counter-sep">:</div>
+    <div class="counter-item">
+      <div class="counter-num" id="cnt-m">00</div>
+      <div class="counter-label">Minute</div>
+    </div>
+    <div class="counter-sep">:</div>
+    <div class="counter-item">
+      <div class="counter-num" id="cnt-s">00</div>
+      <div class="counter-label">Secunde</div>
+    </div>
+  </div>
+
+  <div class="social-row">
+    <a href="https://discord.gg/h8Ah6VKDzm" target="_blank" class="social-btn discord">
+      <i class="fa-brands fa-discord"></i> Discord Support
+    </a>
+    <a href="https://t.me/SmartCreator_official" target="_blank" class="social-btn telegram">
+      <i class="fa-brands fa-telegram"></i> Telegram VIP
+    </a>
+  </div>
+
+</main>
+
+<div class="ticker-wrap">
+  <div class="ticker-track">
+    <span class="ticker-item"><span class="dot"></span> 481 voci Minimax disponibile</span>
+    <span class="ticker-item hot"><span class="dot"></span> NOU — Preview-uri în română</span>
+    <span class="ticker-item"><span class="dot"></span> Minimax Speech 2.6 HD · Model nou</span>
+    <span class="ticker-item hot"><span class="dot"></span> Revenim în curând · Viralio Voice AI</span>
+    <span class="ticker-item"><span class="dot"></span> 200+ voci ElevenLabs disponibile</span>
+    <span class="ticker-item"><span class="dot"></span> Motor AI îmbunătățit · Calitate superioară</span>
+    <span class="ticker-item hot"><span class="dot"></span> NOU — Preview-uri înregistrate în română</span>
+    <span class="ticker-item"><span class="dot"></span> 481 voci Minimax disponibile</span>
+    <span class="ticker-item hot"><span class="dot"></span> NOU — Preview-uri în română</span>
+    <span class="ticker-item"><span class="dot"></span> Minimax Speech 2.6 HD · Model nou</span>
+    <span class="ticker-item hot"><span class="dot"></span> Revenim în curând · Viralio Voice AI</span>
+    <span class="ticker-item"><span class="dot"></span> 200+ voci ElevenLabs disponibile</span>
+    <span class="ticker-item"><span class="dot"></span> Motor AI îmbunătățit · Calitate superioară</span>
+    <span class="ticker-item hot"><span class="dot"></span> NOU — Preview-uri înregistrate în română</span>
+  </div>
+</div>
+
+<script>
+// ── COUNTDOWN (2 ore de acum) ─────────────────────────────────
+// Schimbă această linie cu data exactă când termini:
+// const TARGET = new Date('2026-04-22T14:00:00');
+const TARGET = new Date(Date.now() + 2 * 60 * 60 * 1000);
+
+function pad(n){ return String(n).padStart(2,'0'); }
+
+function updateCountdown(){
+  const diff = Math.max(0, TARGET - Date.now());
+  document.getElementById('cnt-h').textContent = pad(Math.floor(diff/3600000));
+  document.getElementById('cnt-m').textContent = pad(Math.floor((diff%3600000)/60000));
+  document.getElementById('cnt-s').textContent = pad(Math.floor((diff%60000)/1000));
+}
+setInterval(updateCountdown, 1000);
+updateCountdown();
+
+// ── LIVE TIME ─────────────────────────────────────────────────
+function updateTime(){
+  document.getElementById('live-time').textContent =
+    new Date().toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(updateTime, 1000);
+updateTime();
+
+// ── PROGRESS BAR (pornește la 45%, crește încet) ──────────────
+let pct = 45;
+const fill = document.getElementById('progress-fill');
+const pctLabel = document.getElementById('pct-label');
+setTimeout(()=>{ fill.style.width = pct + '%'; }, 400);
+
+setInterval(()=>{
+  if(pct < 79){ pct += Math.random() * 0.35; }
+  fill.style.width = pct + '%';
+  pctLabel.textContent = Math.round(pct) + '%';
+}, 2500);
+
+// ── AUTO-RELOAD când site-ul revine online ────────────────────
+setInterval(async ()=>{
+  try {
+    const res = await fetch('/api/health', { signal: AbortSignal.timeout(3000) });
+    if(res.ok){
+      const d = await res.json();
+      if(d.maintenance === false) window.location.reload();
+    }
+  } catch(e){}
+}, 30000);
+</script>
+
+</body>
+</html>
