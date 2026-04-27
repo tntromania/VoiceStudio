@@ -14,9 +14,9 @@ const PORT = process.env.PORT || 3000;
 // Configurare Google
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// Voice AI Config
-const AI33_API_KEY = process.env.AI33_API_KEY;
-const AI33_BASE_URL = 'https://api.ai33.pro';
+// Voice AI Config — DubVoice.ai
+const DUBVOICE_API_KEY = process.env.DUBVOICE_API_KEY;
+const DUBVOICE_BASE_URL = 'https://www.dubvoice.ai';
 
 // Foldere Stocare
 const DOWNLOAD_DIR = path.join(__dirname, 'public', 'downloads');
@@ -122,31 +122,29 @@ const VOICE_ID_MAP = {
 };
 
 // ==========================================
-// HELPER: Generare cu Minimax (fallback)
+// HELPER: Generare cu Minimax via DubVoice
+// (apel SINCRON — returnează direct audio_url, fără polling)
 // ==========================================
-async function generateWithMinimax(text, voiceId, speed) {
+async function generateWithMinimax(text, voiceId, speed, pitch, vol, language_boost) {
     // Dacă nu avem un voice_id Minimax explicit, folosim o voce default neutră
-    const minimaxVoiceId = voiceId || '226893671006276'; // Graceful Lady (fallback default)
+    const minimaxVoiceId = voiceId || 'Wise_Woman'; // fallback default DubVoice
 
-    const response = await fetch(`${AI33_BASE_URL}/v1m/task/text-to-speech`, {
+    const response = await fetch(`${DUBVOICE_BASE_URL}/api/minimax-tts`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'xi-api-key': AI33_API_KEY
+            'Authorization': `Bearer ${DUBVOICE_API_KEY}`
         },
         body: JSON.stringify({
             text: text,
+            voice_id: minimaxVoiceId,
             model: 'speech-2.6-hd',
-            voice_setting: {
-                voice_id: minimaxVoiceId,
-                vol: 1,
-                pitch: 0,
-                speed: parseFloat(speed) || 1.0
-            },
-            language_boost: 'Auto',
-            with_transcript: false
+            language_boost: language_boost || 'Auto',
+            speed: parseFloat(speed) || 1.0,
+            pitch: parseFloat(pitch) || 0,
+            vol: parseFloat(vol) || 1
         }),
-        signal: AbortSignal.timeout(25000)
+        signal: AbortSignal.timeout(90000)
     });
 
     if (!response.ok) {
@@ -155,12 +153,12 @@ async function generateWithMinimax(text, voiceId, speed) {
     }
 
     const data = await response.json();
-    if (!data.success || !data.task_id) {
-        throw new Error('Minimax: eroare la inițializarea generării.');
+    if (!data.success || !data.audio_url) {
+        throw new Error('Minimax: eroare la generare audio.');
     }
 
-    console.log(`✅ [Minimax] Task creat: ${data.task_id}`);
-    return await pollTask(data.task_id, 75000);
+    console.log(`✅ [Minimax DubVoice] Audio generat direct, chars: ${data.characters_used}`);
+    return data.audio_url; // URL direct, fără polling
 }
 
 // ==========================================
@@ -192,8 +190,8 @@ async function pollTask(taskId, maxWait = 75000) {
 
         let response;
         try {
-            response = await fetch(`${AI33_BASE_URL}/v1/task/${taskId}`, {
-                headers: { 'xi-api-key': AI33_API_KEY },
+            response = await fetch(`${DUBVOICE_BASE_URL}/api/v1/tts/${taskId}`, {
+                headers: { 'Authorization': `Bearer ${DUBVOICE_API_KEY}` },
                 signal: AbortSignal.timeout(15000)
             });
         } catch (fetchErr) {
@@ -209,14 +207,14 @@ async function pollTask(taskId, maxWait = 75000) {
 
         const task = await response.json();
 
-        if (task.status === 'done') {
-            const audioUrl = task.metadata?.audio_url || task.output_uri || task.metadata?.output_uri;
+        if (task.status === 'completed') {
+            const audioUrl = task.result;
             if (!audioUrl) throw new Error("Generarea a fost finalizată dar fișierul audio nu este disponibil.");
             return audioUrl;
         }
 
-        if (task.status === 'error' || task.status === 'failed') {
-            throw new Error("Eroare la procesarea vocii. Încearcă din nou.");
+        if (task.status === 'failed' || task.status === 'error') {
+            throw new Error(task.error || "Eroare la procesarea vocii. Încearcă din nou.");
         }
     }
 
@@ -266,22 +264,24 @@ app.post('/api/generate', authenticate, async (req, res) => {
         let voiceResponse;
         try {
             voiceResponse = await fetch(
-                `${AI33_BASE_URL}/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
+                `${DUBVOICE_BASE_URL}/api/v1/tts`,
                 {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'xi-api-key': AI33_API_KEY
+                        'Authorization': `Bearer ${DUBVOICE_API_KEY}`
                     },
                     body: JSON.stringify({
                         text: text,
+                        voice_id: voiceId,
                         model_id: modelId,
                         voice_settings: {
                             stability: parseFloat(stability) || 0.5,
                             similarity_boost: parseFloat(similarity_boost) || 0.75,
-                            speed: parseFloat(speed) || 1.0
-                        },
-                        with_transcript: false
+                            speed: parseFloat(speed) || 1.0,
+                            style: 0,
+                            use_speaker_boost: true
+                        }
                     }),
                     signal: AbortSignal.timeout(25000)
                 }
@@ -324,7 +324,7 @@ app.post('/api/generate', authenticate, async (req, res) => {
             throw new Error(`Eroare internă la procesarea vocii (${voiceResponse.status})`);
         } else {
             const responseData = await voiceResponse.json();
-            if (!responseData.success || !responseData.task_id) {
+            if (!responseData.task_id) {
                 throw new Error("Eroare internă la inițializarea generării.");
             }
             console.log(`✅ Task creat: ${responseData.task_id}`);
@@ -384,53 +384,40 @@ setInterval(() => {
 }, 3600000);
 
 // ==========================================
-// RUTĂ VOCI MINIMAX (200+ voci, paginate)
+// RUTĂ VOCI MINIMAX — via DubVoice.ai
 // ==========================================
 app.get('/api/voices/minimax', async (req, res) => {
     try {
-        const PAGE_SIZE = 30;
-        const TARGET = 210; // Vrem cel puțin 200 voci
-        let allVoices = [];
-        let page = 1;
-        let hasMore = true;
+        const response = await fetch(`${DUBVOICE_BASE_URL}/api/minimax-tts/voices`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${DUBVOICE_API_KEY}`
+            },
+            body: JSON.stringify({}),
+            signal: AbortSignal.timeout(20000)
+        });
 
-        while (hasMore && allVoices.length < TARGET) {
-            const response = await fetch(`${AI33_BASE_URL}/v1m/voice/list`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'xi-api-key': AI33_API_KEY
-                },
-                body: JSON.stringify({ page, page_size: PAGE_SIZE, tag_list: [] }),
-                signal: AbortSignal.timeout(15000)
-            });
-
-            if (!response.ok) {
-                const err = await response.text();
-                throw new Error(`Minimax voice list error ${response.status}: ${err}`);
-            }
-
-            const data = await response.json();
-            if (!data.success || !data.data?.voice_list) break;
-
-            const voices = data.data.voice_list.map(v => ({
-                id: v.voice_id,
-                name: v.voice_name,
-                tags: v.tag_list || [],
-                gender: (v.tag_list || []).find(t => ['Female','Male'].includes(t))?.toLowerCase() || 'unknown',
-                accent: (v.tag_list || []).find(t => ['English','Romanian','French','Spanish','German','Italian','Portuguese','Japanese','Korean','Chinese','Arabic'].includes(t)) || 'other',
-                sampleAudio: v.sample_audio || null,
-                coverUrl: v.cover_url || null,
-                provider: 'minimax'
-            }));
-
-            allVoices = allVoices.concat(voices);
-            hasMore = data.data.has_more;
-            page++;
-
-            console.log(`📋 Minimax voci page ${page-1}: +${voices.length} (total: ${allVoices.length})`);
+        if (!response.ok) {
+            const err = await response.text();
+            throw new Error(`Minimax voice list error ${response.status}: ${err}`);
         }
 
+        const data = await response.json();
+        if (!data.voices) throw new Error('Format răspuns invalid de la DubVoice.');
+
+        const allVoices = data.voices.map(v => ({
+            id: v.voice_id,
+            name: v.voice_name,
+            tags: v.tag_list || [],
+            gender: (v.tag_list || []).find(t => ['Female','Male'].includes(t))?.toLowerCase() || 'unknown',
+            accent: (v.tag_list || []).find(t => ['English','Romanian','French','Spanish','German','Italian','Portuguese','Japanese','Korean','Chinese','Arabic'].includes(t)) || 'other',
+            sampleAudio: v.demo_audio || null,
+            description: v.description || null,
+            provider: 'minimax'
+        }));
+
+        console.log(`📋 Minimax DubVoice: ${allVoices.length} voci încărcate`);
         res.json({ voices: allVoices, total: allVoices.length });
     } catch (error) {
         console.error('Eroare voci Minimax:', error.message);
