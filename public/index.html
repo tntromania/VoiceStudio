@@ -181,11 +181,12 @@
                         ElevenLabs
                         <span id="dot-el" style="background:#22c55e" class="w-2 h-2 rounded-full transition-colors duration-500 flex-shrink-0" title="Functional"></span>
                     </button>
-                    <button id="prov-btn-mm" onclick="switchProvider('minimax')"
-                        class="flex-1 py-2 px-3 rounded-lg text-xs font-black transition-all text-slate-400 flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-microchip text-purple-400"></i>
+                    <button id="prov-btn-mm" onclick="showMaintenanceModal()"
+                        class="flex-1 py-2 px-3 rounded-lg text-xs font-black transition-all text-slate-400 flex items-center justify-center gap-2 cursor-pointer opacity-70">
+                        <i class="fa-solid fa-microchip text-purple-300"></i>
                         Minimax
-                        <span id="dot-mm" style="background:#22c55e" class="w-2 h-2 rounded-full transition-colors duration-500 flex-shrink-0" title="Functional"></span>
+                        <span style="font-size:0.45rem;padding:1px 5px;border-radius:3px;background:#f59e0b;color:#fff;font-weight:900;letter-spacing:0.04em;">MNT</span>
+                        <span id="dot-mm" style="background:#f59e0b" class="w-2 h-2 rounded-full flex-shrink-0" title="Mentenanță"></span>
                     </button>
                 </div>
 
@@ -1270,6 +1271,35 @@ function renderHistory(){
 }
 
 function clearHistory(){ localStorage.removeItem('viralio_voice_hist'); const box=document.getElementById('history-box'); if(box) box.innerHTML='<div class="text-center text-slate-400 text-sm font-medium py-10" id="empty-history">Nu ai generat nimic încă.</div>'; }
+</script>
+
+<!-- ══ MODAL MENTENANȚĂ MINIMAX ══ -->
+<div id="maintenance-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.7);backdrop-filter:blur(8px);z-index:999999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:24px;padding:36px 32px;max-width:400px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.25);text-align:center;animation:mnt-in .3s cubic-bezier(.16,1,.3,1);">
+    <div style="width:60px;height:60px;border-radius:18px;background:linear-gradient(135deg,#fef3c7,#fde68a);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:30px;box-shadow:0 8px 20px rgba(245,158,11,0.25);">🔧</div>
+    <h2 style="font-size:19px;font-weight:900;color:#0f172a;margin:0 0 10px;">Minimax — Mentenanță</h2>
+    <p style="font-size:13px;color:#64748b;line-height:1.65;margin:0 0 8px;">Acest motor vocal este temporar indisponibil pentru lucrări de mentenanță și actualizare.</p>
+    <p style="font-size:12px;color:#94a3b8;line-height:1.6;margin:0 0 26px;">Între timp poți folosi <strong style="color:#0f172a;">ElevenLabs</strong> — calitate identică, aceleași voci.</p>
+    <button onclick="document.getElementById('maintenance-modal').style.display='none'"
+      style="width:100%;padding:13px;background:#0f172a;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;transition:opacity .15s;"
+      onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+      Am înțeles
+    </button>
+  </div>
+</div>
+<style>
+@keyframes mnt-in { from { opacity:0; transform:translateY(16px) scale(.97); } to { opacity:1; transform:none; } }
+</style>
+
+<script>
+function showMaintenanceModal(){
+  const m = document.getElementById('maintenance-modal');
+  m.style.display = 'flex';
+}
+// Inchide si pe click pe overlay
+document.getElementById('maintenance-modal').addEventListener('click', function(e){
+  if(e.target === this) this.style.display = 'none';
+});
 </script>
 </body>
 </html>
