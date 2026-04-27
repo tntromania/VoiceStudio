@@ -225,6 +225,15 @@ async function pollTask(taskId, maxWait = 75000) {
 // RUTĂ GENERARE VOCE
 // ==========================================
 app.post('/api/generate', authenticate, async (req, res) => {
+    let cost;
+    let updatedUser;
+    const refundChars = async () => {
+        if (!cost || !updatedUser) return;
+        await User.findByIdAndUpdate(req.userId, { $inc: { voice_characters: cost } });
+        console.log(`↩️ Refund ${cost} chars pentru userul ${req.userId}`);
+        updatedUser = null; // marcare că s-a făcut refund, să nu se mai facă de două ori
+    };
+
     try {
         const { text, voice, stability, similarity_boost, speed } = req.body;
         const user = await User.findById(req.userId);
@@ -234,9 +243,18 @@ app.post('/api/generate', authenticate, async (req, res) => {
         if (!text) return res.status(400).json({ error: "Textul lipsește." });
 
         const textWithoutSpaces = text.replace(/\s+/g, '');
-        const cost = textWithoutSpaces.length;
+        cost = textWithoutSpaces.length;
 
-        if (user.voice_characters < cost) {
+        // ── Deducere atomică ÎNAINTE de generare (fix race condition) ──────────
+        // findOneAndUpdate cu $inc este atomic — nu poate fi suprascris de requesturi paralele
+        updatedUser = await User.findOneAndUpdate(
+            { _id: req.userId, voice_characters: { $gte: cost } }, // condiție: suficiente caractere
+            { $inc: { voice_characters: -cost } },
+            { new: true } // returnează documentul DUPĂ update
+        );
+
+        if (!updatedUser) {
+            // findOneAndUpdate a returnat null → condiția nu a fost îndeplinită → caractere insuficiente
             return res.status(403).json({ error: `Caractere insuficiente. Ai nevoie de ${cost} caractere.` });
         }
 
@@ -246,11 +264,10 @@ app.post('/api/generate', authenticate, async (req, res) => {
                 const mmUrl = await generateWithMinimax(text, req.body.minimaxVoiceId, speed);
                 const mmFile = `voice_${Date.now()}.mp3`;
                 await downloadAudio(mmUrl, path.join(DOWNLOAD_DIR, mmFile));
-                user.voice_characters -= cost;
-                await user.save();
-                console.log(`🎙️ [Minimax Direct] ${mmFile} | Chars rămase: ${user.voice_characters}`);
-                return res.json({ audioUrl: `/downloads/${mmFile}`, remaining_chars: user.voice_characters, provider: 'minimax' });
+                console.log(`🎙️ [Minimax Direct] ${mmFile} | Chars rămase: ${updatedUser.voice_characters}`);
+                return res.json({ audioUrl: `/downloads/${mmFile}`, remaining_chars: updatedUser.voice_characters, provider: 'minimax' });
             } catch(mmDirectErr) {
+                await refundChars();
                 console.error('❌ Minimax direct error:', mmDirectErr.message);
                 return res.status(500).json({ error: mmDirectErr.message || 'Eroare Minimax. Încearcă din nou.' });
             }
@@ -351,14 +368,15 @@ app.post('/api/generate', authenticate, async (req, res) => {
         const filePath = path.join(DOWNLOAD_DIR, fileName);
         await downloadAudio(outputUrl, filePath);
 
-        user.voice_characters -= cost;
-        await user.save();
-
-        console.log(`🎤 [${usedProvider.toUpperCase()}] Audio salvat: ${fileName} | Chars rămase: ${user.voice_characters}`);
-        res.json({ audioUrl: `/downloads/${fileName}`, remaining_chars: user.voice_characters, provider: usedProvider });
+        // Caracterele au fost deja scăzute atomic la început — nu mai scădem din nou
+        console.log(`🎤 [${usedProvider.toUpperCase()}] Audio salvat: ${fileName} | Chars rămase: ${updatedUser.voice_characters}`);
+        res.json({ audioUrl: `/downloads/${fileName}`, remaining_chars: updatedUser.voice_characters, provider: usedProvider });
 
     } catch (error) {
         console.error("ERROR VOICE GEN:", error.message || error);
+
+        // Refund caractere dacă generarea a eșuat după deducerea atomică
+        try { await refundChars(); } catch (_) {}
 
         if (error.message && error.message.includes('429')) {
             return res.status(429).json({ error: "Serverul este suprasolicitat momentan. Așteaptă 5-10 secunde și încearcă din nou!" });
