@@ -14,9 +14,9 @@ const PORT = process.env.PORT || 3000;
 // Configurare Google
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// Voice AI Config — DubVoice.ai
-const DUBVOICE_API_KEY = process.env.DUBVOICE_API_KEY;
-const DUBVOICE_BASE_URL = 'https://www.dubvoice.ai';
+// Voice AI Config
+const VOICE_API_KEY = process.env.VOICE_API_KEY;
+const VOICE_API_BASE = process.env.VOICE_API_BASE || 'https://www.dubvoice.ai';
 
 // Foldere Stocare
 const DOWNLOAD_DIR = path.join(__dirname, 'public', 'downloads');
@@ -122,18 +122,18 @@ const VOICE_ID_MAP = {
 };
 
 // ==========================================
-// HELPER: Generare cu Minimax via DubVoice
+// HELPER: Generare cu Minimax
 // (apel SINCRON — returnează direct audio_url, fără polling)
 // ==========================================
 async function generateWithMinimax(text, voiceId, speed, pitch, vol, language_boost) {
     // Dacă nu avem un voice_id Minimax explicit, folosim o voce default neutră
-    const minimaxVoiceId = voiceId || 'Wise_Woman'; // fallback default DubVoice
+    const minimaxVoiceId = voiceId || 'Wise_Woman'; 
 
-    const response = await fetch(`${DUBVOICE_BASE_URL}/api/minimax-tts`, {
+    const response = await fetch(`${VOICE_API_BASE}/api/minimax-tts`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${DUBVOICE_API_KEY}`
+            'Authorization': `Bearer ${VOICE_API_KEY}`
         },
         body: JSON.stringify({
             text: text,
@@ -157,7 +157,7 @@ async function generateWithMinimax(text, voiceId, speed, pitch, vol, language_bo
         throw new Error('Minimax: eroare la generare audio.');
     }
 
-    console.log(`✅ [Minimax DubVoice] Audio generat direct, chars: ${data.characters_used}`);
+    console.log(`✅ [Minimax] Audio generat direct, chars: ${data.characters_used}`);
     return data.audio_url; // URL direct, fără polling
 }
 
@@ -190,8 +190,8 @@ async function pollTask(taskId, maxWait = 75000) {
 
         let response;
         try {
-            response = await fetch(`${DUBVOICE_BASE_URL}/api/v1/tts/${taskId}`, {
-                headers: { 'Authorization': `Bearer ${DUBVOICE_API_KEY}` },
+            response = await fetch(`${VOICE_API_BASE}/api/v1/tts/${taskId}`, {
+                headers: { 'Authorization': `Bearer ${VOICE_API_KEY}` },
                 signal: AbortSignal.timeout(15000)
             });
         } catch (fetchErr) {
@@ -264,12 +264,12 @@ app.post('/api/generate', authenticate, async (req, res) => {
         let voiceResponse;
         try {
             voiceResponse = await fetch(
-                `${DUBVOICE_BASE_URL}/api/v1/tts`,
+                `${VOICE_API_BASE}/api/v1/tts`,
                 {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${DUBVOICE_API_KEY}`
+                        'Authorization': `Bearer ${VOICE_API_KEY}`
                     },
                     body: JSON.stringify({
                         text: text,
@@ -384,15 +384,15 @@ setInterval(() => {
 }, 3600000);
 
 // ==========================================
-// RUTĂ VOCI MINIMAX — via DubVoice.ai
+// RUTĂ VOCI MINIMAX
 // ==========================================
 app.get('/api/voices/minimax', async (req, res) => {
     try {
-        const response = await fetch(`${DUBVOICE_BASE_URL}/api/minimax-tts/voices`, {
+        const response = await fetch(`${VOICE_API_BASE}/api/minimax-tts/voices`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${DUBVOICE_API_KEY}`
+                'Authorization': `Bearer ${VOICE_API_KEY}`
             },
             body: JSON.stringify({}),
             signal: AbortSignal.timeout(20000)
@@ -404,7 +404,7 @@ app.get('/api/voices/minimax', async (req, res) => {
         }
 
         const data = await response.json();
-        if (!data.voices) throw new Error('Format răspuns invalid de la DubVoice.');
+        if (!data.voices) throw new Error('Format răspuns invalid de la server.');
 
         const allVoices = data.voices.map(v => ({
             id: v.voice_id,
@@ -417,7 +417,7 @@ app.get('/api/voices/minimax', async (req, res) => {
             provider: 'minimax'
         }));
 
-        console.log(`📋 Minimax DubVoice: ${allVoices.length} voci încărcate`);
+        console.log(`📋 Minimax: ${allVoices.length} voci încărcate`);
         res.json({ voices: allVoices, total: allVoices.length });
     } catch (error) {
         console.error('Eroare voci Minimax:', error.message);
