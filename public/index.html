@@ -1044,7 +1044,7 @@ async function processTaskAudio(id){
             taskId,
             // onDone
             async (result) => {
-                clearPendingTask();
+                clearPendingTask(taskId);
                 t.status = 'done';
                 t.audioUrl = result.audioUrl;
                 t.audio = new Audio(result.audioUrl);
@@ -1062,7 +1062,7 @@ async function processTaskAudio(id){
             },
             // onFail
             async (errMsg) => {
-                clearPendingTask();
+                clearPendingTask(taskId);
                 showErrorBanner(errMsg);
                 // Refetch chars — serverul a dat refund automat
                 try {
@@ -1092,37 +1092,50 @@ async function pasteText(){ await pasteTaskText(tasks[0]?.id); }
 //  TASK PERSISTENCE — localStorage + server polling
 //  Rezolvă: refresh în timpul generării → vocea nu se pierde
 // ══════════════════════════════════════════════════════════════
-const PENDING_TASK_KEY = 'viralio_pending_task';
+const PENDING_TASKS_KEY = 'viralio_pending_tasks';
+const PENDING_TASK_TTL  = 15 * 60 * 1000;
 
 function savePendingTask(taskId, uiTaskId, text, voice){
     try {
-        localStorage.setItem(PENDING_TASK_KEY, JSON.stringify({
-            taskId,
-            uiTaskId,
-            text: text.substring(0, 60),
-            fullText: text,
-            voice,
-            startedAt: Date.now(),
-            token: getToken()
-        }));
+        const all = _loadAllPendingTasks();
+        const idx = all.findIndex(t => t.taskId === taskId);
+        const entry = { taskId, uiTaskId, text: text.substring(0, 60), fullText: text, voice, startedAt: Date.now(), token: getToken() };
+        if(idx >= 0) all[idx] = entry; else all.push(entry);
+        localStorage.setItem(PENDING_TASKS_KEY, JSON.stringify(all));
     } catch(e) {}
 }
 
-function clearPendingTask(){
-    try { localStorage.removeItem(PENDING_TASK_KEY); } catch(e) {}
+// Șterge DOAR task-ul cu taskId-ul specificat — celelalte rămân intacte
+function clearPendingTask(taskId){
+    try {
+        if(!taskId){ localStorage.removeItem(PENDING_TASKS_KEY); return; }
+        const remaining = _loadAllPendingTasks().filter(t => t.taskId !== taskId);
+        if(remaining.length) localStorage.setItem(PENDING_TASKS_KEY, JSON.stringify(remaining));
+        else                 localStorage.removeItem(PENDING_TASKS_KEY);
+    } catch(e) {}
 }
 
-function loadPendingTask(){
+function _loadAllPendingTasks(){
     try {
-        const raw = localStorage.getItem(PENDING_TASK_KEY);
-        if(!raw) return null;
-        const data = JSON.parse(raw);
-        // Expirat după 15 minute (generarea serverului max ~10 min)
-        if(Date.now() - data.startedAt > 15 * 60 * 1000){
-            clearPendingTask(); return null;
+        // Migrare transparentă de la cheia veche (single-task)
+        const oldRaw = localStorage.getItem('viralio_pending_task');
+        if(oldRaw){
+            const old = JSON.parse(oldRaw);
+            localStorage.removeItem('viralio_pending_task');
+            if(old && Date.now() - old.startedAt < PENDING_TASK_TTL){
+                const migrated = [old];
+                localStorage.setItem(PENDING_TASKS_KEY, JSON.stringify(migrated));
+                return migrated;
+            }
         }
-        return data;
-    } catch(e) { return null; }
+        const raw = localStorage.getItem(PENDING_TASKS_KEY);
+        if(!raw) return [];
+        const arr = JSON.parse(raw);
+        if(!Array.isArray(arr)) return [];
+        const valid = arr.filter(t => Date.now() - t.startedAt < PENDING_TASK_TTL);
+        if(valid.length !== arr.length) localStorage.setItem(PENDING_TASKS_KEY, JSON.stringify(valid));
+        return valid;
+    } catch(e) { return []; }
 }
 
 // Polling server la fiecare 3s până la finalizare (max 6 min = 120 încercări)
@@ -1158,60 +1171,56 @@ function pollTaskStatus(serverTaskId, onDone, onFail){
     setTimeout(poll, 2000); // Prima verificare după 2s
 }
 
-// ── Recovery după reload ─────────────────────────────────────
-// Apelat din window.onload după autentificare
+// ── Recovery după reload ─────────────────────────────
+// Apelat din window.onload după autentificare — suportă N task-uri în curs
 function resumePendingTask(){
-    const pending = loadPendingTask();
-    if(!pending) return;
+    const pendingAll = _loadAllPendingTasks();
+    if(!pendingAll.length) return;
 
-    const { taskId, text, fullText, voice, startedAt } = pending;
-    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-    console.log(`🔄 [RECOVERY] Task ${taskId} găsit (${elapsed}s în urmă)`);
-
-    // Deschidem Istoria și injectăm cardul de loading acolo
+    console.log(`[RECOVERY] ${pendingAll.length} task(uri) în curs găsite`);
     switchTab('history');
-    showRecoveryInHistory('loading', voice, elapsed, text || fullText);
 
-    pollTaskStatus(
-        taskId,
-        // onDone
-        async (result) => {
-            clearPendingTask();
-            if(result.remaining_chars != null){
-                currentVoiceCharacters = result.remaining_chars;
-                const nc = document.getElementById('nav-chars');
-                if(nc) nc.innerText = currentVoiceCharacters.toLocaleString('ro-RO');
+    pendingAll.forEach(pending => {
+        const { taskId, text, fullText, voice, startedAt } = pending;
+        const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+        showRecoveryInHistory('loading', taskId, voice, elapsed, text || fullText);
+
+        pollTaskStatus(
+            taskId,
+            async (result) => {
+                clearPendingTask(taskId);
+                if(result.remaining_chars != null){
+                    currentVoiceCharacters = result.remaining_chars;
+                    const nc = document.getElementById('nav-chars');
+                    if(nc) nc.innerText = currentVoiceCharacters.toLocaleString('ro-RO');
+                }
+                await addToHistory(fullText || text, voice, result.audioUrl);
+                showRecoveryInHistory('done', taskId, voice, 0, text || fullText, result.audioUrl);
+                showToast(`✅ Vocea ${voice} din sesiunea anterioară este gata!`);
+            },
+            (errMsg) => {
+                clearPendingTask(taskId);
+                showRecoveryInHistory('failed', taskId, voice, 0, text || fullText, null, errMsg);
             }
-            await addToHistory(fullText || text, voice, result.audioUrl);
-            showRecoveryInHistory('done', voice, 0, text || fullText, result.audioUrl);
-            showToast('✅ Vocea ta din sesiunea anterioară este gata!');
-        },
-        // onFail
-        (errMsg) => {
-            clearPendingTask();
-            showRecoveryInHistory('failed', voice, 0, text || fullText, null, errMsg);
-        }
-    );
+        );
+    });
 }
 
-// ── Recovery card în Istoric ─────────────────────────────────
-function showRecoveryInHistory(state, voice, elapsed, previewText, audioUrl, errMsg){
+// ── Recovery card în Istoric — câte unul per task ─────────────
+function showRecoveryInHistory(state, taskId, voice, elapsed, previewText, audioUrl, errMsg){
     const box = document.getElementById('history-box');
     if(!box) return;
-
-    // Eliminăm placeholder-ul "Nu ai generat nimic" dacă există
     const empty = document.getElementById('empty-history');
     if(empty) empty.remove();
-
-    // Găsim sau creăm cardul de recovery
-    let card = document.getElementById('recovery-history-card');
+    const cardId = `recovery-card-${taskId}`;
+    let card = document.getElementById(cardId);
     if(!card){
         card = document.createElement('div');
-        card.id = 'recovery-history-card';
+        card.id = cardId;
         box.insertBefore(card, box.firstChild);
     }
-
     const shortText = (previewText || '').substring(0, 60);
+    const timerId = `timer-${taskId}`;
 
     if(state === 'loading'){
         let sec = elapsed;
@@ -1221,26 +1230,24 @@ function showRecoveryInHistory(state, voice, elapsed, previewText, audioUrl, err
                 <span class="spin-sm" style="border-color:rgba(99,102,241,0.25);border-top-color:#6366f1;width:14px;height:14px;"></span>
             </div>
             <div class="flex-1 overflow-hidden">
-                <p class="text-xs font-bold text-slate-800 truncate">${shortText}${(previewText||'').length>=60?'...':''}</p>
+                <p class="text-xs font-bold text-slate-800 truncate">${shortText}${(previewText||"").length>=60?"...":""}</p>
                 <p class="text-[0.65rem] font-bold text-indigo-400 mt-0.5">
                     <span class="text-indigo-500">${voice}</span>
-                    · procesare server · <span id="recovery-timer">${sec}</span>s
+                    · procesare server · <span id="${timerId}">${sec}</span>s
                 </p>
             </div>
             <div class="text-[0.6rem] font-black text-indigo-400 uppercase tracking-wider shrink-0 bg-indigo-100 px-2 py-1 rounded-lg">
                 în curs…
             </div>`;
-        // Timer live
         if(card._iv) clearInterval(card._iv);
         card._iv = setInterval(() => {
-            const el = document.getElementById('recovery-timer');
+            const el = document.getElementById(timerId);
             if(el) el.innerText = ++sec; else clearInterval(card._iv);
         }, 1000);
         box.scrollTop = 0;
 
     } else if(state === 'done'){
         if(card._iv) clearInterval(card._iv);
-        // Animăm highlight-ul, apoi re-renderăm istoria complet (cardul real a fost deja adăugat via addToHistory)
         card.className = 'p-3 border rounded-xl flex items-center gap-3 shadow-sm bg-emerald-50 border-emerald-300';
         card.style.transition = 'all 0.4s ease';
         card.innerHTML = `
@@ -1248,7 +1255,7 @@ function showRecoveryInHistory(state, voice, elapsed, previewText, audioUrl, err
                 ✅
             </div>
             <div class="flex-1 overflow-hidden">
-                <p class="text-xs font-bold text-emerald-800 truncate">${shortText}${(previewText||'').length>=60?'...':''}</p>
+                <p class="text-xs font-bold text-emerald-800 truncate">${shortText}${(previewText||"").length>=60?"...":""}</p>
                 <p class="text-[0.65rem] font-bold text-emerald-500 mt-0.5">
                     <span class="text-indigo-500">${voice}</span>
                     · gata! · salvat în istoric
@@ -1259,14 +1266,16 @@ function showRecoveryInHistory(state, voice, elapsed, previewText, audioUrl, err
                 class="w-9 h-9 shrink-0 rounded-full bg-white border border-emerald-200 hover:bg-viralio-600 hover:text-white hover:border-viralio-600 flex items-center justify-center text-emerald-600 shadow-sm transition-all">
                 <i class="fa-solid fa-play text-[0.7rem] ml-0.5"></i>
             </button>
-            <a href="${audioUrl}" download="viralio_recovery.mp3"
+            <a href="${audioUrl}" download="viralio_${taskId}.mp3"
                 class="w-9 h-9 shrink-0 rounded-lg bg-white border border-emerald-200 hover:bg-slate-100 flex items-center justify-center text-emerald-500 transition-all">
                 <i class="fa-solid fa-download text-xs"></i>
-            </a>` : ''}`;
+            </a>` : ""}`;
         box.scrollTop = 0;
-        // După 4s, re-renderăm istoria complet (cardul real e deja salvat)
+        // Re-renderăm numai după ce TOATE cardurile de recovery s-au terminat
         setTimeout(async () => {
-            await renderHistory();
+            const allCards = box.querySelectorAll('[id^="recovery-card-"]');
+            const anyLoading = Array.from(allCards).some(el => el.querySelector('.spin-sm'));
+            if(!anyLoading) await renderHistory();
         }, 4000);
 
     } else if(state === 'failed'){
@@ -1277,10 +1286,10 @@ function showRecoveryInHistory(state, voice, elapsed, previewText, audioUrl, err
                 ❌
             </div>
             <div class="flex-1 overflow-hidden">
-                <p class="text-xs font-bold text-red-800 truncate">${shortText}${(previewText||'').length>=60?'...':''}</p>
+                <p class="text-xs font-bold text-red-800 truncate">${shortText}${(previewText||"").length>=60?"...":""}</p>
                 <p class="text-[0.65rem] font-bold text-red-400 mt-0.5">${errMsg || 'Eroare necunoscută'} · 0 caractere folosite</p>
             </div>
-            <button onclick="document.getElementById('recovery-history-card').remove()"
+            <button onclick="document.getElementById('${cardId}').remove()"
                 class="w-7 h-7 shrink-0 rounded-lg bg-white border border-red-200 hover:bg-red-100 flex items-center justify-center text-red-400 transition-all text-xs">
                 <i class="fa-solid fa-xmark"></i>
             </button>`;
