@@ -181,12 +181,13 @@ function downloadAudio(url, dest) {
 // ==========================================
 // HELPER: Polling task până la finalizare
 // ==========================================
-async function pollTask(taskId, maxWait = 75000) {
+async function pollTask(taskId) {
     const interval = 3000;
-    const maxAttempts = Math.floor(maxWait / interval);
+    let attempt = 0;
 
-    for (let i = 0; i < maxAttempts; i++) {
+    while (true) {
         await new Promise(r => setTimeout(r, interval));
+        attempt++;
 
         let response;
         try {
@@ -195,12 +196,12 @@ async function pollTask(taskId, maxWait = 75000) {
                 signal: AbortSignal.timeout(15000)
             });
         } catch (fetchErr) {
-            console.warn(`⚠️ Polling eroare attempt ${i+1}: ${fetchErr.message}`);
+            console.warn(`⚠️ Polling eroare attempt ${attempt}: ${fetchErr.message}`);
             continue;
         }
 
         if (response.status === 503 || response.status === 502) {
-            console.warn(`⚠️ Server vocal ${response.status}, attempt ${i+1}, reîncercăm...`);
+            console.warn(`⚠️ Server vocal ${response.status}, attempt ${attempt}, reîncercăm...`);
             continue;
         }
         if (!response.ok) throw new Error(`Eroare internă server: ${response.status}`);
@@ -214,11 +215,14 @@ async function pollTask(taskId, maxWait = 75000) {
         }
 
         if (task.status === 'failed' || task.status === 'error') {
-            throw new Error(task.error || "Eroare la procesarea vocii. Încearcă din nou.");
+            const errMsg = task.error || '';
+            // Text blocat de Terms of Service
+            if (errMsg.includes('Terms of Service') || errMsg.includes('task-failed') || errMsg.includes('blocked') || errMsg.includes('violate')) {
+                throw new Error('BLOCKED:Textul conține conținut blocat de sistemul de moderare. Modifică textul și încearcă din nou.');
+            }
+            throw new Error(errMsg || "Eroare la procesarea vocii. Încearcă din nou.");
         }
     }
-
-    throw new Error("Generarea a durat prea mult (75s). Încearcă din nou.");
 }
 
 // ==========================================
@@ -309,59 +313,37 @@ app.post('/api/generate', authenticate, async (req, res) => {
             throw fetchErr;
         }
 
-        // ── Fallback Minimax dacă ElevenLabs e jos ───────────────
-        const shouldFallback = !voiceResponse.ok &&
-            [429, 502, 503].includes(voiceResponse.status);
-
         let outputUrl;
         let usedProvider = 'elevenlabs';
 
-        if (shouldFallback) {
-            const errBody = await voiceResponse.text();
-            console.warn(`⚠️ ElevenLabs ${voiceResponse.status} — fallback la Minimax. Body: ${errBody}`);
-
-            try {
-                const minimaxVoiceId = req.body.minimaxVoiceId || null;
-                outputUrl = await generateWithMinimax(text, minimaxVoiceId, speed);
-                usedProvider = 'minimax';
-                console.log(`✅ [Minimax fallback] Audio generat cu succes`);
-            } catch (minimaxErr) {
-                console.error('❌ Minimax fallback a eșuat:', minimaxErr.message);
-                if (voiceResponse.status === 429) {
-                    return res.status(429).json({ error: "Ambele servere vocale sunt suprasolicitate. Așteaptă 10-30 secunde și încearcă din nou!" });
-                }
-                return res.status(503).json({ error: "Serviciile vocale sunt temporar indisponibile. Revino în câteva minute!" });
-            }
-        } else if (!voiceResponse.ok) {
+        if (!voiceResponse.ok) {
             const errBody = await voiceResponse.text();
             console.error("Eroare server vocal:", voiceResponse.status, errBody);
+            if (voiceResponse.status === 429) {
+                return res.status(429).json({ error: "Serverul este suprasolicitat. Așteaptă 10-30 secunde și încearcă din nou!" });
+            }
             if (voiceResponse.status === 401) {
                 return res.status(500).json({ error: "Eroare internă de configurare. Contactează suportul." });
             }
-            throw new Error(`Eroare internă la procesarea vocii (${voiceResponse.status})`);
-        } else {
-            const responseData = await voiceResponse.json();
-            if (!responseData.task_id) {
-                throw new Error("Eroare internă la inițializarea generării.");
+            return res.status(503).json({ error: "Serverul vocal este momentan indisponibil. Încearcă din nou în câteva minute." });
+        }
+
+        const responseData = await voiceResponse.json();
+        if (!responseData.task_id) {
+            throw new Error("Eroare internă la inițializarea generării.");
+        }
+        console.log(`✅ Task creat: ${responseData.task_id}`);
+        try {
+            outputUrl = await pollTask(responseData.task_id);
+        } catch (pollErr) {
+            providerLog['elevenlabs'].push(false);
+            if (providerLog['elevenlabs'].length > 10) providerLog['elevenlabs'].shift();
+            console.error(`❌ [ElevenLabs] Eroare polling: ${pollErr.message}`);
+            // Dacă e text blocat — mesaj specific
+            if (pollErr.message.startsWith('BLOCKED:')) {
+                return res.status(400).json({ error: pollErr.message.replace('BLOCKED:', '') });
             }
-            console.log(`✅ Task creat: ${responseData.task_id}`);
-            try {
-                outputUrl = await pollTask(responseData.task_id);
-            } catch (pollErr) {
-                // Timeout sau eroare polling ElevenLabs → marchează ca eroare în status
-                providerLog['elevenlabs'].push(false);
-                if (providerLog['elevenlabs'].length > 10) providerLog['elevenlabs'].shift();
-                console.error(`❌ [ElevenLabs] Timeout/eroare polling (${pollErr.message}) → status: ${getProviderStatus('elevenlabs')} — fallback automat la Minimax`);
-                try {
-                    const minimaxVoiceId = req.body.minimaxVoiceId || null;
-                    outputUrl = await generateWithMinimax(text, minimaxVoiceId, speed, req.body.pitch, req.body.vol, req.body.language_boost);
-                    usedProvider = 'minimax';
-                    console.log(`✅ [Minimax fallback după timeout EL] Audio generat cu succes`);
-                } catch (mmFallbackErr) {
-                    console.error(`❌ [Minimax fallback] A eșuat și el:`, mmFallbackErr.message);
-                    return res.status(503).json({ error: "Ambele servere vocale au timeout. Încearcă din nou în câteva secunde." });
-                }
-            }
+            throw pollErr;
         }
 
         const fileName = `voice_${Date.now()}.mp3`;
