@@ -336,8 +336,6 @@ app.post('/api/generate', authenticate, async (req, res) => {
         try {
             outputUrl = await pollTask(responseData.task_id);
         } catch (pollErr) {
-            providerLog['elevenlabs'].push(false);
-            if (providerLog['elevenlabs'].length > 10) providerLog['elevenlabs'].shift();
             console.error(`❌ [ElevenLabs] Eroare polling: ${pollErr.message}`);
             // Dacă e text blocat — mesaj specific
             if (pollErr.message.startsWith('BLOCKED:')) {
@@ -426,49 +424,7 @@ app.get('/api/voices/minimax', async (req, res) => {
 });
 
 
-// ══════════════════════════════════════════════════════════════
-// STATUS PROVIDER — partajat între toți userii
-// ══════════════════════════════════════════════════════════════
-const providerLog = {
-    elevenlabs: [], // true=ok, false=err
-    minimax: []
-};
 
-function getProviderStatus(p) {
-    const log = providerLog[p];
-    if (!log.length) return 'ok';
-
-    // Numără erorile CONSECUTIVE de la finalul log-ului
-    let consecErrors = 0;
-    for (let i = log.length - 1; i >= 0; i--) {
-        if (!log[i]) consecErrors++;
-        else break; // s-a oprit la primul succes
-    }
-
-    if (consecErrors >= 5) return 'down';       // 5+ erori consecutive → roșu
-    if (consecErrors >= 2) return 'unstable';   // 2-4 erori consecutive → galben
-    return 'ok';                                // 0-1 erori → verde
-}
-
-// GET /api/provider-status — returnează statusul curent
-app.get('/api/provider-status', (req, res) => {
-    res.json({
-        elevenlabs: getProviderStatus('elevenlabs'),
-        minimax: getProviderStatus('minimax'),
-        updatedAt: new Date().toISOString()
-    });
-});
-
-// POST /api/provider-status/report — raportat de client după generare
-app.post('/api/provider-status/report', (req, res) => {
-    const { provider, success } = req.body;
-    if (!['elevenlabs','minimax'].includes(provider)) return res.status(400).json({ error: 'Provider invalid' });
-    const log = providerLog[provider];
-    log.push(!!success);
-    if (log.length > 10) log.shift();
-    console.log(`[STATUS] ${provider}: ${success ? 'OK' : 'ERR'} → ${getProviderStatus(provider)}`);
-    res.json({ status: getProviderStatus(provider) });
-});
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
