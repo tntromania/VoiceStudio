@@ -179,14 +179,11 @@
                         class="flex-1 py-2 px-3 rounded-lg text-xs font-black transition-all bg-white text-slate-900 shadow-sm flex items-center justify-center gap-2">
                         <i class="fa-solid fa-bolt text-amber-400"></i>
                         ElevenLabs
-                        <span id="dot-el" style="background:#22c55e" class="w-2 h-2 rounded-full transition-colors duration-500 flex-shrink-0" title="Functional"></span>
                     </button>
                     <button id="prov-btn-mm" onclick="showMaintenanceModal()"
                         class="flex-1 py-2 px-3 rounded-lg text-xs font-black transition-all text-slate-400 flex items-center justify-center gap-2 cursor-pointer opacity-70">
                         <i class="fa-solid fa-microchip text-purple-300"></i>
                         Minimax
-                        <span style="font-size:0.45rem;padding:1px 5px;border-radius:3px;background:#f59e0b;color:#fff;font-weight:900;letter-spacing:0.04em;">MNT</span>
-                        <span id="dot-mm" style="background:#f59e0b" class="w-2 h-2 rounded-full flex-shrink-0" title="Mentenanță"></span>
                     </button>
                 </div>
 
@@ -347,7 +344,7 @@
     </main>
 
     <!-- PLAYER BAR -->
-    <div id="player-bar" class="absolute bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-3xl bg-white/95 backdrop-blur-3xl border border-slate-200 rounded-[2rem] p-3 md:p-4 flex items-center gap-3 md:gap-5 shadow-[0_20px_50px_rgba(0,0,0,0.15)] translate-y-40 transition-transform duration-500 z-50">
+    <div id="player-bar" class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-3xl bg-white/95 backdrop-blur-3xl border border-slate-200 rounded-[2rem] p-3 md:p-4 flex items-center gap-3 md:gap-5 shadow-[0_20px_50px_rgba(0,0,0,0.15)] translate-y-40 transition-transform duration-500 z-50">
         <button id="player-play-btn" class="w-12 h-12 md:w-14 md:h-14 shrink-0 rounded-full bg-slate-900 text-white flex items-center justify-center text-lg shadow-lg hover:scale-105 hover:bg-viralio-600 transition-all">
             <i class="fa-solid fa-play ml-1"></i>
         </button>
@@ -529,9 +526,6 @@ window.onload = async()=>{
     updateSliderMM('mm-speed'); updateSliderMM('mm-pitch'); updateSliderMM('mm-vol');
     renderHistory();
     document.getElementById('vm-result-count').innerText = ALL_VOICES.length;
-    // Fetch status server la intrare — arată popup dacă e down
-    await fetchServerStatus(true);
-    startStatusPolling();
     const token=getToken();
     if(token){
         try{
@@ -559,124 +553,6 @@ function switchTab(tab){
         CH.classList.remove('hidden'); CH.classList.add('flex');
         CS.classList.add('hidden'); CS.classList.remove('flex');
     }
-}
-
-// ══════════════════════════════════════════════════════════════
-//  2b. STATUS DOTS — partajat pe server, valabil pentru TOȚI userii
-// ══════════════════════════════════════════════════════════════
-const STATUS_COLOR = { ok: '#22c55e', unstable: '#f59e0b', down: '#ef4444' };
-const STATUS_LABEL = { ok: 'Funcțional', unstable: 'Instabil', down: 'Nefuncțional' };
-let serverStatus = { elevenlabs: 'ok', minimax: 'ok' };
-let statusPolling = null;
-
-// Track ce popup-uri s-au arătat deja în această sesiune
-const popupShownFor = new Set();
-
-async function fetchServerStatus(showPopupIfDown = false){
-    try{
-        const r = await fetch('/api/provider-status');
-        if(!r.ok) return;
-        const data = await r.json();
-        const prevStatus = { ...serverStatus };
-        serverStatus = data;
-        applyStatusDots();
-
-        // Arată popup dacă:
-        // 1. E cerut explicit (la load) SAU
-        // 2. Status-ul s-a schimbat LIVE în down/unstable (fără refresh)
-        //    — dar doar o dată per provider per sesiune
-        ['elevenlabs','minimax'].forEach(p => {
-            const prev = prevStatus[p] || 'ok';
-            const curr = serverStatus[p] || 'ok';
-            const wentBad = prev === 'ok' && (curr === 'down' || curr === 'unstable');
-            const popupKey = p + '_' + curr;
-            const alreadyShown = popupShownFor.has(popupKey);
-
-            if(!alreadyShown && (wentBad || (showPopupIfDown && (curr==='down'||curr==='unstable')))){
-                // Arată popup doar dacă e pentru providerul activ
-                if(p === activeProvider){
-                    const otherKey = p === 'elevenlabs' ? 'minimax' : 'elevenlabs';
-                    const otherOk = serverStatus[otherKey] === 'ok';
-                    popupShownFor.add(popupKey);
-                    showStatusPopup(p, curr, otherKey, otherOk);
-                }
-            }
-
-            // Reset popup când revine la ok (ca să poată apărea din nou dacă cade iar)
-            if(curr === 'ok'){
-                popupShownFor.delete(p + '_down');
-                popupShownFor.delete(p + '_unstable');
-            }
-        });
-
-    } catch(e){ console.warn('[Viralio] Nu pot citi statusul serverului:', e.message); }
-}
-
-function applyStatusDots(){
-    ['elevenlabs','minimax'].forEach(p => {
-        const dot = document.getElementById(p==='elevenlabs' ? 'dot-el' : 'dot-mm');
-        if(!dot) return;
-        const s = serverStatus[p] || 'ok';
-        dot.style.background = STATUS_COLOR[s];
-        dot.title = STATUS_LABEL[s];
-    });
-}
-
-function showStatusPopup(provider, status, fallback, fallbackOk){
-    if(document.getElementById('status-popup')) return; // nu dubla
-    const provName = provider === 'elevenlabs' ? 'ElevenLabs' : 'Minimax';
-    const fallbackName = fallback === 'elevenlabs' ? 'ElevenLabs' : 'Minimax';
-    const isDown = status === 'down';
-    const popup = document.createElement('div');
-    popup.id = 'status-popup';
-    popup.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.65);backdrop-filter:blur(6px);z-index:999999;display:flex;align-items:center;justify-content:center;';
-    popup.innerHTML = `
-        <div style="background:#fff;border-radius:24px;padding:32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.2);text-align:center;">
-            <div style="width:56px;height:56px;border-radius:16px;background:${isDown?'#fef2f2':'#fffbeb'};display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px;">
-                ${isDown ? '🔴' : '🟡'}
-            </div>
-            <h2 style="font-size:18px;font-weight:900;color:#0f172a;margin-bottom:8px;">
-                ${provName} este momentan ${isDown ? 'nefuncțional' : 'instabil'}
-            </h2>
-            <p style="font-size:13px;color:#64748b;margin-bottom:24px;line-height:1.6;">
-                ${isDown
-                    ? `Serverul ${provName} nu răspunde. Îți recomandăm să schimbi la ${fallbackOk ? fallbackName : 'alt provider'} pentru a putea genera audio.`
-                    : `${provName} are erori intermitente. Poți continua, dar s-ar putea să apară probleme.`
-                }
-            </p>
-            <div style="display:flex;gap:10px;justify-content:center;">
-                ${fallbackOk ? `<button onclick="switchProvider('${fallback}');closeStatusPopup()" style="flex:1;padding:12px;background:#0f172a;color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:800;cursor:pointer;">
-                    Treci la ${fallbackName}
-                </button>` : ''}
-                <button onclick="closeStatusPopup()" style="flex:1;padding:12px;background:#f1f5f9;color:#334155;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;">
-                    Continuă oricum
-                </button>
-            </div>
-        </div>`;
-    document.body.appendChild(popup);
-}
-
-function closeStatusPopup(){
-    const p = document.getElementById('status-popup');
-    if(p) p.remove();
-}
-
-async function logApiCall(success){
-    // Raportează la server (partajat pentru toți userii)
-    try{
-        await fetch('/api/provider-status/report', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ provider: activeProvider, success })
-        });
-    } catch(e){}
-    // Actualizează dots local imediat, apoi fetch complet
-    fetchServerStatus();
-}
-
-function startStatusPolling(){
-    if(statusPolling) return;
-    statusPolling = setInterval(() => fetchServerStatus(false), 30000); // la 30s
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1137,25 +1013,18 @@ async function processTaskAudio(id){
             });
         } catch(fetchErr) {
             clearTimeout(timeoutId);
-            await logApiCall(false);
-            const errMsg = fetchErr.name==='AbortError' ? 'Timeout 90s — serverul nu a răspuns.' : fetchErr.message;
-            const fallback = activeProvider==='elevenlabs' ? 'minimax' : 'elevenlabs';
-            switchProvider(fallback);
-            showToast(`❌ ${errMsg} — am comutat la ${fallback.charAt(0).toUpperCase()+fallback.slice(1)}`);
+                const errMsg = fetchErr.name==='AbortError' ? 'Timeout 90s — serverul nu a răspuns.' : fetchErr.message;
+            showErrorBanner(errMsg);
             t.status = 'idle'; renderTasks(); return;
         } finally { clearTimeout(timeoutId); }
 
         data = await res.json();
         if(!res.ok){
-            await logApiCall(false);
             const errMsg = data.error || `Eroare HTTP ${res.status}`;
-            const fallback = activeProvider==='elevenlabs' ? 'minimax' : 'elevenlabs';
-            switchProvider(fallback);
-            showToast(`❌ ${errMsg} — am comutat la ${fallback.charAt(0).toUpperCase()+fallback.slice(1)}`);
+            showErrorBanner(errMsg);
             t.status = 'idle'; renderTasks(); return;
         }
 
-        await logApiCall(true);
         t.status = 'done';
         t.audioUrl = data.audioUrl;
         t.audio = new Audio(data.audioUrl);
@@ -1170,8 +1039,7 @@ async function processTaskAudio(id){
         if(nc) nc.innerText=currentVoiceCharacters.toLocaleString('ro-RO');
 
     } catch(e){
-        await logApiCall(false);
-        showToast('❌ Eroare: '+e.message);
+        showErrorBanner(e.message);
         t.status = 'idle'; renderTasks();
     }
 }
@@ -1197,6 +1065,27 @@ function showToast(msg){
     t.style.opacity='1';
     clearTimeout(t._to);
     t._to=setTimeout(()=>t.style.opacity='0', 4000);
+}
+
+
+// ══════════════════════════════════════════════════════════════
+//  ERROR BANNER — vizibil fix jos, nu dispare singur
+// ══════════════════════════════════════════════════════════════
+function showErrorBanner(msg){
+    const b = document.getElementById('error-banner');
+    const m = document.getElementById('error-banner-msg');
+    if(!b||!m) return;
+    m.innerText = msg || 'Eroare necunoscută.';
+    b.style.display = 'block';
+    // Împinge player-bar mai sus dacă e vizibil
+    const pb = document.getElementById('player-bar');
+    if(pb) pb.style.bottom = '80px';
+}
+function closeErrorBanner(){
+    const b = document.getElementById('error-banner');
+    if(b) b.style.display = 'none';
+    const pb = document.getElementById('player-bar');
+    if(pb) pb.style.bottom = '';
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1237,7 +1126,7 @@ function addToHistory(text, voice, url){
     const box=document.getElementById('history-box'); if(!box) return;
     if(box.querySelector('#empty-history')) box.innerHTML='';
     const hist=JSON.parse(localStorage.getItem('viralio_voice_hist')||'[]');
-    hist.unshift({text:text.substring(0,60), voice, url, time:new Date().toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'})});
+    hist.unshift({text:text.substring(0,60), fullText:text, voice, url, time:new Date().toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'})});
     if(hist.length>20) hist.pop();
     localStorage.setItem('viralio_voice_hist',JSON.stringify(hist));
     renderHistory();
@@ -1260,11 +1149,28 @@ function renderHistory(){
                 <p class="text-xs font-bold text-slate-800 truncate">${h.text}...</p>
                 <p class="text-[0.65rem] font-bold text-slate-400 mt-0.5"><span class="text-indigo-500">${h.voice}</span> · ${h.time}</p>
             </div>
+            <button class="hist-use w-8 h-8 shrink-0 rounded-lg bg-indigo-50 border border-indigo-100 hover:bg-viralio-600 hover:text-white hover:border-viralio-600 flex items-center justify-center text-indigo-500 transition-all" title="Încarcă în editor">
+                <i class="fa-solid fa-arrow-up-to-line text-xs"></i>
+            </button>
             <a href="${h.url}" download="viralio_voice.mp3" class="w-8 h-8 shrink-0 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-500 transition-all">
                 <i class="fa-solid fa-download text-xs"></i>
             </a>`;
         el.querySelectorAll('.hist-play').forEach(btn=>{
             btn.addEventListener('click',()=>launchPlayer(h.url, h.voice, h.text));
+        });
+        const useBtn = el.querySelector('.hist-use');
+        if(useBtn) useBtn.addEventListener('click', ()=>{
+            // Încarcă textul în primul task disponibil / activ
+            const fullText = h.fullText || h.text;
+            if(tasks.length > 0){
+                const t = tasks[0];
+                t.text = fullText;
+                const ta = document.getElementById('ta-'+t.id);
+                if(ta){ ta.value = fullText; ta.dispatchEvent(new Event('input')); }
+                updateTaskCounters(t.id);
+                switchTab('settings');
+                showToast('✅ Text încărcat în editor!');
+            }
         });
         box.appendChild(el);
     });
@@ -1272,6 +1178,19 @@ function renderHistory(){
 
 function clearHistory(){ localStorage.removeItem('viralio_voice_hist'); const box=document.getElementById('history-box'); if(box) box.innerHTML='<div class="text-center text-slate-400 text-sm font-medium py-10" id="empty-history">Nu ai generat nimic încă.</div>'; }
 </script>
+
+
+<!-- EROARE BANNER — fix jos, persistent până la close -->
+<div id="error-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:999990;background:#fef2f2;border-top:2px solid #fecaca;padding:14px 20px;box-shadow:0 -4px 24px rgba(239,68,68,0.12);">
+  <div style="max-width:800px;margin:0 auto;display:flex;align-items:flex-start;gap:12px;">
+    <div style="width:36px;height:36px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;">❌</div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:13px;font-weight:800;color:#991b1b;margin-bottom:3px;">Eroare la generare</div>
+      <div id="error-banner-msg" style="font-size:12px;color:#b91c1c;font-weight:600;line-height:1.5;word-break:break-word;"></div>
+    </div>
+    <button onclick="closeErrorBanner()" style="flex-shrink:0;background:#fee2e2;border:none;border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:14px;color:#991b1b;display:flex;align-items:center;justify-content:center;font-weight:900;" title="Închide">✕</button>
+  </div>
+</div>
 
 <!-- ══ MODAL MENTENANȚĂ MINIMAX ══ -->
 <div id="maintenance-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.7);backdrop-filter:blur(8px);z-index:999999;align-items:center;justify-content:center;">
