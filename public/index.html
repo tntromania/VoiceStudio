@@ -1168,98 +1168,123 @@ function resumePendingTask(){
     const elapsed = Math.floor((Date.now() - startedAt) / 1000);
     console.log(`🔄 [RECOVERY] Task ${taskId} găsit (${elapsed}s în urmă)`);
 
-    showRecoveryBanner('loading', voice, elapsed);
+    // Deschidem Istoria și injectăm cardul de loading acolo
+    switchTab('history');
+    showRecoveryInHistory('loading', voice, elapsed, text || fullText);
 
     pollTaskStatus(
         taskId,
         // onDone
         async (result) => {
             clearPendingTask();
-            showRecoveryBanner('done', voice, 0, result.audioUrl);
             if(result.remaining_chars != null){
                 currentVoiceCharacters = result.remaining_chars;
                 const nc = document.getElementById('nav-chars');
                 if(nc) nc.innerText = currentVoiceCharacters.toLocaleString('ro-RO');
             }
             await addToHistory(fullText || text, voice, result.audioUrl);
+            showRecoveryInHistory('done', voice, 0, text || fullText, result.audioUrl);
             showToast('✅ Vocea ta din sesiunea anterioară este gata!');
         },
         // onFail
         (errMsg) => {
             clearPendingTask();
-            showRecoveryBanner('failed', voice, 0, null, errMsg);
+            showRecoveryInHistory('failed', voice, 0, text || fullText, null, errMsg);
         }
     );
 }
 
-// ── Recovery Banner UI ───────────────────────────────────────
-function showRecoveryBanner(state, voice, elapsed, audioUrl, errMsg){
-    const banner = document.getElementById('recovery-banner');
-    if(!banner) return;
-    banner.style.display = 'block';
+// ── Recovery card în Istoric ─────────────────────────────────
+function showRecoveryInHistory(state, voice, elapsed, previewText, audioUrl, errMsg){
+    const box = document.getElementById('history-box');
+    if(!box) return;
+
+    // Eliminăm placeholder-ul "Nu ai generat nimic" dacă există
+    const empty = document.getElementById('empty-history');
+    if(empty) empty.remove();
+
+    // Găsim sau creăm cardul de recovery
+    let card = document.getElementById('recovery-history-card');
+    if(!card){
+        card = document.createElement('div');
+        card.id = 'recovery-history-card';
+        box.insertBefore(card, box.firstChild);
+    }
+
+    const shortText = (previewText || '').substring(0, 60);
 
     if(state === 'loading'){
-        banner.style.background = '#eef2ff';
-        banner.style.borderTopColor = '#c7d2fe';
         let sec = elapsed;
-        banner.innerHTML = `
-            <div style="display:flex;align-items:center;gap:12px;max-width:800px;margin:0 auto;">
-                <div style="width:36px;height:36px;border-radius:10px;background:rgba(99,102,241,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                    <span class="spin-sm" style="border-color:rgba(99,102,241,0.3);border-top-color:#6366f1;width:16px;height:16px;"></span>
-                </div>
-                <div style="flex:1;min-width:0;">
-                    <div style="font-size:13px;font-weight:800;color:#1e293b;">Generare în curs după reload...</div>
-                    <div style="font-size:11px;color:#64748b;font-weight:600;margin-top:2px;">
-                        Vocea <strong>${voice}</strong> se procesează pe server
-                        (<span id="recovery-timer">${sec}</span>s)
-                    </div>
-                </div>
+        card.className = 'p-3 border rounded-xl flex items-center gap-3 shadow-sm bg-indigo-50 border-indigo-200';
+        card.innerHTML = `
+            <div class="w-9 h-9 shrink-0 rounded-full bg-white border border-indigo-100 flex items-center justify-center shadow-sm">
+                <span class="spin-sm" style="border-color:rgba(99,102,241,0.25);border-top-color:#6366f1;width:14px;height:14px;"></span>
+            </div>
+            <div class="flex-1 overflow-hidden">
+                <p class="text-xs font-bold text-slate-800 truncate">${shortText}${(previewText||'').length>=60?'...':''}</p>
+                <p class="text-[0.65rem] font-bold text-indigo-400 mt-0.5">
+                    <span class="text-indigo-500">${voice}</span>
+                    · procesare server · <span id="recovery-timer">${sec}</span>s
+                </p>
+            </div>
+            <div class="text-[0.6rem] font-black text-indigo-400 uppercase tracking-wider shrink-0 bg-indigo-100 px-2 py-1 rounded-lg">
+                în curs…
             </div>`;
         // Timer live
-        if(banner._iv) clearInterval(banner._iv);
-        banner._iv = setInterval(() => {
+        if(card._iv) clearInterval(card._iv);
+        card._iv = setInterval(() => {
             const el = document.getElementById('recovery-timer');
-            if(el) el.innerText = ++sec; else clearInterval(banner._iv);
+            if(el) el.innerText = ++sec; else clearInterval(card._iv);
         }, 1000);
+        box.scrollTop = 0;
 
     } else if(state === 'done'){
-        if(banner._iv) clearInterval(banner._iv);
-        banner.style.background = '#f0fdf4';
-        banner.style.borderTopColor = '#bbf7d0';
-        banner.innerHTML = `
-            <div style="display:flex;align-items:center;gap:10px;max-width:800px;margin:0 auto;">
-                <div style="width:36px;height:36px;border-radius:10px;background:#dcfce7;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;">✅</div>
-                <div style="flex:1;min-width:0;">
-                    <div style="font-size:13px;font-weight:800;color:#166534;">Vocea ta e gata!</div>
-                    <div style="font-size:11px;color:#16a34a;font-weight:600;margin-top:1px;">Generarea din sesiunea anterioară s-a finalizat · salvată în Istoric</div>
-                </div>
-                ${audioUrl ? `
-                <button onclick="launchPlayer('${audioUrl}','${voice}','');showToast('▶ Redare...')"
-                    style="padding:7px 14px;background:#166534;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;">
-                    ▶ Play
-                </button>
-                <a href="${audioUrl}" download="viralio_recovery.mp3"
-                    style="padding:7px 12px;background:#dcfce7;border:1px solid #bbf7d0;border-radius:9px;font-size:12px;font-weight:800;color:#166534;text-decoration:none;white-space:nowrap;flex-shrink:0;">
-                    ⬇ Descarcă
-                </a>` : ''}
-                <button onclick="document.getElementById('recovery-banner').style.display='none'"
-                    style="width:28px;height:28px;background:#dcfce7;border:none;border-radius:8px;cursor:pointer;font-size:14px;color:#166534;flex-shrink:0;">✕</button>
-            </div>`;
+        if(card._iv) clearInterval(card._iv);
+        // Animăm highlight-ul, apoi re-renderăm istoria complet (cardul real a fost deja adăugat via addToHistory)
+        card.className = 'p-3 border rounded-xl flex items-center gap-3 shadow-sm bg-emerald-50 border-emerald-300';
+        card.style.transition = 'all 0.4s ease';
+        card.innerHTML = `
+            <div class="w-9 h-9 shrink-0 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center shadow-sm text-emerald-600 text-base">
+                ✅
+            </div>
+            <div class="flex-1 overflow-hidden">
+                <p class="text-xs font-bold text-emerald-800 truncate">${shortText}${(previewText||'').length>=60?'...':''}</p>
+                <p class="text-[0.65rem] font-bold text-emerald-500 mt-0.5">
+                    <span class="text-indigo-500">${voice}</span>
+                    · gata! · salvat în istoric
+                </p>
+            </div>
+            ${audioUrl ? `
+            <button onclick="launchPlayer('${audioUrl}','${voice}','')"
+                class="w-9 h-9 shrink-0 rounded-full bg-white border border-emerald-200 hover:bg-viralio-600 hover:text-white hover:border-viralio-600 flex items-center justify-center text-emerald-600 shadow-sm transition-all">
+                <i class="fa-solid fa-play text-[0.7rem] ml-0.5"></i>
+            </button>
+            <a href="${audioUrl}" download="viralio_recovery.mp3"
+                class="w-9 h-9 shrink-0 rounded-lg bg-white border border-emerald-200 hover:bg-slate-100 flex items-center justify-center text-emerald-500 transition-all">
+                <i class="fa-solid fa-download text-xs"></i>
+            </a>` : ''}`;
+        box.scrollTop = 0;
+        // După 4s, re-renderăm istoria complet (cardul real e deja salvat)
+        setTimeout(async () => {
+            await renderHistory();
+        }, 4000);
 
     } else if(state === 'failed'){
-        if(banner._iv) clearInterval(banner._iv);
-        banner.style.background = '#fef2f2';
-        banner.style.borderTopColor = '#fecaca';
-        banner.innerHTML = `
-            <div style="display:flex;align-items:center;gap:12px;max-width:800px;margin:0 auto;">
-                <div style="width:36px;height:36px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;">❌</div>
-                <div style="flex:1;min-width:0;">
-                    <div style="font-size:13px;font-weight:800;color:#991b1b;">Generarea a eșuat</div>
-                    <div style="font-size:11px;color:#b91c1c;font-weight:600;margin-top:1px;">${errMsg||'Eroare necunoscută'} · caracterele au fost returnate automat</div>
-                </div>
-                <button onclick="document.getElementById('recovery-banner').style.display='none'"
-                    style="width:28px;height:28px;background:#fee2e2;border:none;border-radius:8px;cursor:pointer;font-size:14px;color:#991b1b;flex-shrink:0;">✕</button>
-            </div>`;
+        if(card._iv) clearInterval(card._iv);
+        card.className = 'p-3 border rounded-xl flex items-center gap-3 shadow-sm bg-red-50 border-red-200';
+        card.innerHTML = `
+            <div class="w-9 h-9 shrink-0 rounded-full bg-red-100 border border-red-200 flex items-center justify-center text-red-500 text-base">
+                ❌
+            </div>
+            <div class="flex-1 overflow-hidden">
+                <p class="text-xs font-bold text-red-800 truncate">${shortText}${(previewText||'').length>=60?'...':''}</p>
+                <p class="text-[0.65rem] font-bold text-red-400 mt-0.5">${errMsg || 'Eroare necunoscută'} · 0 caractere folosite</p>
+            </div>
+            <button onclick="document.getElementById('recovery-history-card').remove()"
+                class="w-7 h-7 shrink-0 rounded-lg bg-white border border-red-200 hover:bg-red-100 flex items-center justify-center text-red-400 transition-all text-xs">
+                <i class="fa-solid fa-xmark"></i>
+            </button>`;
+        box.scrollTop = 0;
     }
 }
 
@@ -1514,9 +1539,6 @@ async function clearHistory(){
 }
 </script>
 
-
-<!-- RECOVERY BANNER — generare în curs după reload de pagină -->
-<div id="recovery-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:999991;padding:14px 20px;box-shadow:0 -4px 24px rgba(99,102,241,0.12);border-top:2px solid #c7d2fe;background:#eef2ff;"></div>
 
 <!-- EROARE BANNER — fix jos, persistent până la close -->
 <div id="error-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:999990;background:#fef2f2;border-top:2px solid #fecaca;padding:14px 20px;box-shadow:0 -4px 24px rgba(239,68,68,0.12);">
