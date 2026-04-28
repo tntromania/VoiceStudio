@@ -11,14 +11,11 @@ const jwt = require('jsonwebtoken');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configurare Google
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// Voice AI Config
 const VOICE_API_KEY = process.env.VOICE_API_KEY;
 const VOICE_API_BASE = process.env.VOICE_API_BASE || 'https://www.dubvoice.ai';
 
-// Foldere Stocare
 const DOWNLOAD_DIR = path.join(__dirname, 'public', 'downloads');
 if (!fs.existsSync(DOWNLOAD_DIR)) fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
 
@@ -26,12 +23,16 @@ app.use(cors({ origin: '*' }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// DB Connection
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('✅ Voice AI conectat la MongoDB!'))
+    .then(() => {
+        console.log('✅ Voice AI conectat la MongoDB!');
+        cleanStaleTasks(); // Curăță task-urile blocate la startup
+    })
     .catch(err => console.error('❌ Eroare MongoDB:', err));
 
-// Schema User
+// ==========================================
+// SCHEMA USER
+// ==========================================
 const UserSchema = new mongoose.Schema({
     googleId: { type: String, required: true, unique: true },
     email: { type: String, required: true },
@@ -41,10 +42,55 @@ const UserSchema = new mongoose.Schema({
     voice_characters: { type: Number, default: 3000 },
     createdAt: { type: Date, default: Date.now }
 });
-
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
 
-// Middleware Autentificare
+// ==========================================
+// SCHEMA VOICE TASK — persistență generări
+// ==========================================
+const VoiceTaskSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
+    status: { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending' },
+    audioUrl: String,
+    text: String,           // primele 200 chars, pentru afișare
+    voice: String,
+    cost: Number,
+    provider: { type: String, default: 'elevenlabs' },
+    error: String,
+    remaining_chars: Number,
+    createdAt: { type: Date, default: Date.now, expires: 86400 } // auto-ștergere după 24h
+});
+const VoiceTask = mongoose.models.VoiceTask || mongoose.model('VoiceTask', VoiceTaskSchema);
+
+// ==========================================
+// CURĂȚARE TASK-URI BLOCATE LA STARTUP
+// Task-urile 'pending' mai vechi de 10 min → failed + refund
+// ==========================================
+async function cleanStaleTasks() {
+    try {
+        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+        const staleTasks = await VoiceTask.find({
+            status: 'pending',
+            createdAt: { $lt: tenMinutesAgo }
+        });
+        for (const task of staleTasks) {
+            if (task.cost && task.userId) {
+                await User.findByIdAndUpdate(task.userId, { $inc: { voice_characters: task.cost } });
+                console.log(`↩️ [CLEANUP] Refund ${task.cost} chars pentru task stale ${task._id}`);
+            }
+            await VoiceTask.findByIdAndUpdate(task._id, {
+                status: 'failed',
+                error: 'Task expirat — server restartat în timpul generării.'
+            });
+        }
+        if (staleTasks.length) console.log(`🧹 Cleanup: ${staleTasks.length} task-uri stale marcate failed.`);
+    } catch(e) {
+        console.error('Eroare cleanup stale tasks:', e.message);
+    }
+}
+
+// ==========================================
+// MIDDLEWARE AUTENTIFICARE
+// ==========================================
 const authenticate = (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ error: "Trebuie să fii logat!" });
@@ -123,11 +169,9 @@ const VOICE_ID_MAP = {
 
 // ==========================================
 // HELPER: Generare cu Minimax
-// (apel SINCRON — returnează direct audio_url, fără polling)
 // ==========================================
 async function generateWithMinimax(text, voiceId, speed, pitch, vol, language_boost) {
-    // Dacă nu avem un voice_id Minimax explicit, folosim o voce default neutră
-    const minimaxVoiceId = voiceId || 'Wise_Woman'; 
+    const minimaxVoiceId = voiceId || 'Wise_Woman';
 
     const response = await fetch(`${VOICE_API_BASE}/api/minimax-tts`, {
         method: 'POST',
@@ -136,7 +180,7 @@ async function generateWithMinimax(text, voiceId, speed, pitch, vol, language_bo
             'Authorization': `Bearer ${VOICE_API_KEY}`
         },
         body: JSON.stringify({
-            text: text,
+            text,
             voice_id: minimaxVoiceId,
             model: 'speech-2.6-hd',
             language_boost: language_boost || 'Auto',
@@ -157,8 +201,8 @@ async function generateWithMinimax(text, voiceId, speed, pitch, vol, language_bo
         throw new Error('Minimax: eroare la generare audio.');
     }
 
-    console.log(`✅ [Minimax] Audio generat direct, chars: ${data.characters_used}`);
-    return data.audio_url; // URL direct, fără polling
+    console.log(`✅ [Minimax] Audio generat, chars: ${data.characters_used}`);
+    return data.audio_url;
 }
 
 // ==========================================
@@ -179,7 +223,7 @@ function downloadAudio(url, dest) {
 }
 
 // ==========================================
-// HELPER: Polling task până la finalizare
+// HELPER: Polling task ElevenLabs
 // ==========================================
 async function pollTask(taskId) {
     const interval = 3000;
@@ -210,13 +254,12 @@ async function pollTask(taskId) {
 
         if (task.status === 'completed') {
             const audioUrl = task.result;
-            if (!audioUrl) throw new Error("Generarea a fost finalizată dar fișierul audio nu este disponibil.");
+            if (!audioUrl) throw new Error("Generarea finalizată dar fișierul audio nu este disponibil.");
             return audioUrl;
         }
 
         if (task.status === 'failed' || task.status === 'error') {
             const errMsg = task.error || '';
-            // Text blocat de Terms of Service
             if (errMsg.includes('Terms of Service') || errMsg.includes('task-failed') || errMsg.includes('blocked') || errMsg.includes('violate')) {
                 throw new Error('BLOCKED:Textul conține conținut blocat de sistemul de moderare. Modifică textul și încearcă din nou.');
             }
@@ -226,75 +269,47 @@ async function pollTask(taskId) {
 }
 
 // ==========================================
-// RUTĂ GENERARE VOCE
+// BACKGROUND GENERATION — rulează async după ce răspunsul HTTP a fost trimis
 // ==========================================
-app.post('/api/generate', authenticate, async (req, res) => {
-    let cost;
-    let updatedUser;
+async function runGenerationBackground(taskId, userId, cost, body) {
     const refundChars = async () => {
-        if (!cost || !updatedUser) return;
-        await User.findByIdAndUpdate(req.userId, { $inc: { voice_characters: cost } });
-        console.log(`↩️ Refund ${cost} chars pentru userul ${req.userId}`);
-        updatedUser = null; // marcare că s-a făcut refund, să nu se mai facă de două ori
+        try {
+            await User.findByIdAndUpdate(userId, { $inc: { voice_characters: cost } });
+            console.log(`↩️ [BG-REFUND] ${cost} chars → user ${userId}`);
+        } catch(e) { console.error('Eroare refund background:', e.message); }
     };
 
     try {
-        const { text, voice, stability, similarity_boost, speed } = req.body;
-        const user = await User.findById(req.userId);
+        const { text, voice, stability, similarity_boost, speed, provider, voiceId,
+                minimaxVoiceId, pitch, vol, language_boost } = body;
+        let audioUrl;
 
-        console.log(`📝 [${new Date().toLocaleTimeString('ro-RO')}] ${user.name} (${user.email}) | chars: ${text?.length || 0} (fără spații: ${(text || '').replace(/\s+/g, '').length}) | voce: ${voice}`);
+        if (provider === 'minimax') {
+            // — Minimax —
+            const mmUrl = await generateWithMinimax(text, minimaxVoiceId, speed, pitch, vol, language_boost);
+            const mmFile = `voice_${Date.now()}.mp3`;
+            await downloadAudio(mmUrl, path.join(DOWNLOAD_DIR, mmFile));
+            audioUrl = `/downloads/${mmFile}`;
+            console.log(`🎙️ [BG-Minimax] ${mmFile} generat pentru task ${taskId}`);
 
-        if (!text) return res.status(400).json({ error: "Textul lipsește." });
+        } else {
+            // — ElevenLabs —
+            const resolvedVoiceId = voiceId || VOICE_ID_MAP[voice] || VOICE_ID_MAP["Paul"];
+            const modelId = "eleven_multilingual_v2";
 
-        const textWithoutSpaces = text.replace(/\s+/g, '');
-        cost = textWithoutSpaces.length;
+            console.log(`🎙️ [BG-ElevenLabs] task ${taskId} | voce: ${voice} (${resolvedVoiceId})`);
 
-        // ── Deducere atomică ÎNAINTE de generare (fix race condition) ──────────
-        // findOneAndUpdate cu $inc este atomic — nu poate fi suprascris de requesturi paralele
-        updatedUser = await User.findOneAndUpdate(
-            { _id: req.userId, voice_characters: { $gte: cost } }, // condiție: suficiente caractere
-            { $inc: { voice_characters: -cost } },
-            { new: true } // returnează documentul DUPĂ update
-        );
-
-        if (!updatedUser) {
-            // findOneAndUpdate a returnat null → condiția nu a fost îndeplinită → caractere insuficiente
-            return res.status(403).json({ error: `Caractere insuficiente. Ai nevoie de ${cost} caractere.` });
-        }
-
-        // ── Cale directă Minimax (userul a ales explicit o voce Minimax) ──────
-        if (req.body.provider === 'minimax') {
+            let voiceResponse;
             try {
-                const mmUrl = await generateWithMinimax(text, req.body.minimaxVoiceId, speed);
-                const mmFile = `voice_${Date.now()}.mp3`;
-                await downloadAudio(mmUrl, path.join(DOWNLOAD_DIR, mmFile));
-                console.log(`🎙️ [Minimax Direct] ${mmFile} | Chars rămase: ${updatedUser.voice_characters}`);
-                return res.json({ audioUrl: `/downloads/${mmFile}`, remaining_chars: updatedUser.voice_characters, provider: 'minimax' });
-            } catch(mmDirectErr) {
-                await refundChars();
-                console.error('❌ Minimax direct error:', mmDirectErr.message);
-                return res.status(500).json({ error: mmDirectErr.message || 'Eroare Minimax. Încearcă din nou.' });
-            }
-        }
-
-        const voiceId = req.body.voiceId || VOICE_ID_MAP[voice] || VOICE_ID_MAP["Paul"];
-        const modelId = "eleven_multilingual_v2";
-
-        console.log(`🎙️ Generare voce: ${voice} (${voiceId}) pentru ${user.name}`);
-
-        let voiceResponse;
-        try {
-            voiceResponse = await fetch(
-                `${VOICE_API_BASE}/api/v1/tts`,
-                {
+                voiceResponse = await fetch(`${VOICE_API_BASE}/api/v1/tts`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${VOICE_API_KEY}`
                     },
                     body: JSON.stringify({
-                        text: text,
-                        voice_id: voiceId,
+                        text,
+                        voice_id: resolvedVoiceId,
                         model_id: modelId,
                         voice_settings: {
                             stability: parseFloat(stability) || 0.5,
@@ -305,64 +320,156 @@ app.post('/api/generate', authenticate, async (req, res) => {
                         }
                     }),
                     signal: AbortSignal.timeout(25000)
-                }
-            );
-        } catch (fetchErr) {
-            if (fetchErr.name === 'TimeoutError' || fetchErr.name === 'AbortError')
-                return res.status(503).json({ error: "Serverul nu răspunde momentan. Încearcă din nou în câteva secunde." });
-            throw fetchErr;
-        }
-
-        let outputUrl;
-        let usedProvider = 'elevenlabs';
-
-        if (!voiceResponse.ok) {
-            const errBody = await voiceResponse.text();
-            console.error("Eroare server vocal:", voiceResponse.status, errBody);
-            if (voiceResponse.status === 429) {
-                return res.status(429).json({ error: "Serverul este suprasolicitat. Așteaptă 10-30 secunde și încearcă din nou!" });
+                });
+            } catch(fetchErr) {
+                throw new Error(`Serverul vocal nu răspunde: ${fetchErr.message}`);
             }
-            if (voiceResponse.status === 401) {
-                return res.status(500).json({ error: "Eroare internă de configurare. Contactează suportul." });
+
+            if (!voiceResponse.ok) {
+                const errBody = await voiceResponse.text();
+                if (voiceResponse.status === 429) throw new Error('Serverul este suprasolicitat. Încearcă din nou în 10-30 secunde.');
+                throw new Error(`Eroare server vocal: ${voiceResponse.status}`);
             }
-            return res.status(503).json({ error: "Serverul vocal este momentan indisponibil. Încearcă din nou în câteva minute." });
-        }
 
-        const responseData = await voiceResponse.json();
-        if (!responseData.task_id) {
-            throw new Error("Eroare internă la inițializarea generării.");
-        }
-        console.log(`✅ Task creat: ${responseData.task_id}`);
-        try {
-            outputUrl = await pollTask(responseData.task_id);
-        } catch (pollErr) {
-            console.error(`❌ [ElevenLabs] Eroare polling: ${pollErr.message}`);
-            // Dacă e text blocat — mesaj specific
-            if (pollErr.message.startsWith('BLOCKED:')) {
-                return res.status(400).json({ error: pollErr.message.replace('BLOCKED:', '') });
+            const responseData = await voiceResponse.json();
+            if (!responseData.task_id) throw new Error("Eroare internă: nu s-a primit task_id.");
+
+            let outputUrl;
+            try {
+                outputUrl = await pollTask(responseData.task_id);
+            } catch(pollErr) {
+                if (pollErr.message.startsWith('BLOCKED:')) throw pollErr;
+                throw pollErr;
             }
-            throw pollErr;
+
+            const fileName = `voice_${Date.now()}.mp3`;
+            await downloadAudio(outputUrl, path.join(DOWNLOAD_DIR, fileName));
+            audioUrl = `/downloads/${fileName}`;
+            console.log(`🎤 [BG-ElevenLabs] ${fileName} generat pentru task ${taskId}`);
         }
 
-        const fileName = `voice_${Date.now()}.mp3`;
-        const filePath = path.join(DOWNLOAD_DIR, fileName);
-        await downloadAudio(outputUrl, filePath);
+        // Obținem caractere rămase actualizate
+        const freshUser = await User.findById(userId, 'voice_characters');
 
-        // Caracterele au fost deja scăzute atomic la început — nu mai scădem din nou
-        console.log(`🎤 [${usedProvider.toUpperCase()}] Audio salvat: ${fileName} | Chars rămase: ${updatedUser.voice_characters}`);
-        res.json({ audioUrl: `/downloads/${fileName}`, remaining_chars: updatedUser.voice_characters, provider: usedProvider });
+        await VoiceTask.findByIdAndUpdate(taskId, {
+            status: 'completed',
+            audioUrl,
+            remaining_chars: freshUser ? freshUser.voice_characters : null
+        });
+
+        console.log(`✅ [BG] Task ${taskId} → COMPLETED`);
 
     } catch (error) {
-        console.error("ERROR VOICE GEN:", error.message || error);
+        console.error(`❌ [BG] Task ${taskId} → FAILED:`, error.message);
 
-        // Refund caractere dacă generarea a eșuat după deducerea atomică
-        try { await refundChars(); } catch (_) {}
+        // Refund caractere
+        await refundChars();
 
-        if (error.message && error.message.includes('429')) {
-            return res.status(429).json({ error: "Serverul este suprasolicitat momentan. Așteaptă 5-10 secunde și încearcă din nou!" });
+        const errMsg = error.message.startsWith('BLOCKED:')
+            ? error.message.replace('BLOCKED:', '')
+            : (error.message || 'Eroare necunoscută');
+
+        await VoiceTask.findByIdAndUpdate(taskId, {
+            status: 'failed',
+            error: errMsg
+        });
+    }
+}
+
+// ==========================================
+// RUTĂ GENERARE VOCE — returnează taskId imediat, rulează în background
+// ==========================================
+app.post('/api/generate', authenticate, async (req, res) => {
+    try {
+        const { text } = req.body;
+
+        if (!text) return res.status(400).json({ error: "Textul lipsește." });
+
+        const textWithoutSpaces = text.replace(/\s+/g, '');
+        const cost = textWithoutSpaces.length;
+
+        const user = await User.findById(req.userId);
+        console.log(`📝 [${new Date().toLocaleTimeString('ro-RO')}] ${user.name} | chars: ${cost} | voce: ${req.body.voice}`);
+
+        // Deducere atomică ÎNAINTE de generare
+        const updatedUser = await User.findOneAndUpdate(
+            { _id: req.userId, voice_characters: { $gte: cost } },
+            { $inc: { voice_characters: -cost } },
+            { new: true }
+        );
+
+        if (!updatedUser) {
+            return res.status(403).json({ error: `Caractere insuficiente. Ai nevoie de ${cost} caractere.` });
         }
 
-        res.status(500).json({ error: error.message || "Eroare tehnică la generarea vocii. Încearcă din nou." });
+        // Creează task în MongoDB
+        const task = await VoiceTask.create({
+            userId: req.userId,
+            status: 'pending',
+            text: text.substring(0, 200),
+            voice: req.body.voice || 'unknown',
+            cost,
+            provider: req.body.provider || 'elevenlabs'
+        });
+
+        // Răspunde imediat cu taskId (202 Accepted)
+        res.status(202).json({ taskId: task._id.toString() });
+
+        // Rulează generarea în background (fără await)
+        runGenerationBackground(task._id, req.userId, cost, req.body).catch(e => {
+            console.error(`❌ [BG] Uncaught error pentru task ${task._id}:`, e);
+        });
+
+    } catch (error) {
+        console.error("ERROR /api/generate:", error.message);
+        res.status(500).json({ error: error.message || "Eroare tehnică. Încearcă din nou." });
+    }
+});
+
+// ==========================================
+// RUTĂ STATUS TASK — clientul face polling după refresh
+// ==========================================
+app.get('/api/task-status/:taskId', authenticate, async (req, res) => {
+    try {
+        const task = await VoiceTask.findOne({
+            _id: req.params.taskId,
+            userId: req.userId  // securitate: numai userul propriu
+        });
+
+        if (!task) return res.status(404).json({ error: 'Task negăsit sau expirat.' });
+
+        res.json({
+            status: task.status,           // 'pending' | 'completed' | 'failed'
+            audioUrl: task.audioUrl || null,
+            remaining_chars: task.remaining_chars ?? null,
+            error: task.error || null,
+            provider: task.provider,
+            voice: task.voice,
+            text: task.text
+        });
+    } catch(e) {
+        // ObjectId invalid → 404 curat
+        res.status(404).json({ error: 'Task ID invalid.' });
+    }
+});
+
+// ==========================================
+// RUTĂ REFUND CARACTERE (fallback / compatibilitate)
+// ==========================================
+app.post('/api/refund-chars', authenticate, async (req, res) => {
+    try {
+        const { cost } = req.body;
+        if (!cost || isNaN(cost) || cost <= 0) return res.status(400).json({ error: 'Cost invalid.' });
+        const updated = await User.findByIdAndUpdate(
+            req.userId,
+            { $inc: { voice_characters: Math.floor(cost) } },
+            { new: true }
+        );
+        console.log(`↩️ [REFUND] ${Math.floor(cost)} chars → user ${req.userId} | total: ${updated.voice_characters}`);
+        res.json({ voice_characters: updated.voice_characters });
+    } catch(e) {
+        console.error('Eroare refund:', e.message);
+        res.status(500).json({ error: 'Refund eșuat.' });
     }
 });
 
@@ -422,9 +529,6 @@ app.get('/api/voices/minimax', async (req, res) => {
         res.status(500).json({ error: 'Nu s-au putut încărca vocile Minimax.' });
     }
 });
-
-
-
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
