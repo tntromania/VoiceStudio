@@ -530,8 +530,12 @@ window.onload = async()=>{
     if(token){
         try{
             const res=await fetch('/api/auth/me',{headers:{'Authorization':`Bearer ${token}`}});
-            if(res.ok){ const data=await res.json(); updateUI(data.user); }
-            else removeToken();
+            if(res.ok){
+                const data=await res.json();
+                updateUI(data.user);
+                // ── Verifică dacă există o generare în curs din sesiunea anterioară ──
+                resumePendingTask();
+            } else removeToken();
         }catch(e){ console.error(e); }
     }
 };
@@ -986,9 +990,6 @@ async function processTaskAudio(id){
     renderTasks();
 
     try{
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 90000);
-        let res, data;
         const isMM = activeProvider === 'minimax';
         const body = isMM ? {
             text, voice: activeVoice,
@@ -1004,39 +1005,74 @@ async function processTaskAudio(id){
             similarity_boost: parseFloat(document.getElementById('param-sim').value)/100,
             speed: parseFloat(document.getElementById('param-speed').value)
         };
+
+        // 1. POST → server returnează { taskId } imediat (202 Accepted)
+        let res, data;
         try {
             res = await fetch('/api/generate',{
                 method:'POST',
                 headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
-                body: JSON.stringify(body),
-                signal: controller.signal
+                body: JSON.stringify(body)
             });
         } catch(fetchErr) {
-            clearTimeout(timeoutId);
-                const errMsg = fetchErr.name==='AbortError' ? 'Timeout 90s — serverul nu a răspuns.' : fetchErr.message;
-            showErrorBanner(errMsg);
-            t.status = 'idle'; renderTasks(); return;
-        } finally { clearTimeout(timeoutId); }
-
-        data = await res.json();
-        if(!res.ok){
-            const errMsg = data.error || `Eroare HTTP ${res.status}`;
-            showErrorBanner(errMsg);
+            showErrorBanner(fetchErr.message);
             t.status = 'idle'; renderTasks(); return;
         }
 
-        t.status = 'done';
-        t.audioUrl = data.audioUrl;
-        t.audio = new Audio(data.audioUrl);
-        renderTasks();
-        bindTaskAudioEvents(t);
-        // Auto-play în mini player
-        setTimeout(()=>t.audio.play().catch(()=>{}), 100);
+        data = await res.json();
+        if(!res.ok){
+            showErrorBanner(data.error || `Eroare HTTP ${res.status}`);
+            t.status = 'idle'; renderTasks(); return;
+        }
 
-        addToHistory(text, activeVoice, data.audioUrl);
-        currentVoiceCharacters = data.remaining_chars||(currentVoiceCharacters-cost);
-        const nc=document.getElementById('nav-chars');
-        if(nc) nc.innerText=currentVoiceCharacters.toLocaleString('ro-RO');
+        const { taskId } = data;
+        if(!taskId){
+            showErrorBanner('Serverul nu a returnat un task ID. Încearcă din nou.');
+            t.status = 'idle'; renderTasks(); return;
+        }
+
+        // 2. Salvăm imediat în localStorage — ÎNAINTE de polling (protecție refresh)
+        savePendingTask(taskId, id, text, activeVoice);
+
+        // 3. Actualizare optimistă a caracterelor în UI
+        currentVoiceCharacters = Math.max(0, currentVoiceCharacters - cost);
+        const nc = document.getElementById('nav-chars');
+        if(nc) nc.innerText = currentVoiceCharacters.toLocaleString('ro-RO');
+
+        // 4. Polling până la finalizare
+        pollTaskStatus(
+            taskId,
+            // onDone
+            async (result) => {
+                clearPendingTask();
+                t.status = 'done';
+                t.audioUrl = result.audioUrl;
+                t.audio = new Audio(result.audioUrl);
+                renderTasks();
+                bindTaskAudioEvents(t);
+                setTimeout(()=>t.audio.play().catch(()=>{}), 100);
+
+                await addToHistory(text, activeVoice, result.audioUrl);
+
+                // Actualizăm cu valoarea exactă de pe server
+                if(result.remaining_chars != null){
+                    currentVoiceCharacters = result.remaining_chars;
+                    if(nc) nc.innerText = currentVoiceCharacters.toLocaleString('ro-RO');
+                }
+            },
+            // onFail
+            async (errMsg) => {
+                clearPendingTask();
+                showErrorBanner(errMsg);
+                // Refetch chars — serverul a dat refund automat
+                try {
+                    const meRes = await fetch('/api/auth/me',{headers:{'Authorization':`Bearer ${token}`}});
+                    if(meRes.ok){ const d = await meRes.json(); currentVoiceCharacters = d.user.voice_characters; if(nc) nc.innerText = currentVoiceCharacters.toLocaleString('ro-RO'); }
+                } catch(_){}
+                await addToHistoryFailed(text, activeVoice);
+                t.status = 'idle'; renderTasks();
+            }
+        );
 
     } catch(e){
         showErrorBanner(e.message);
@@ -1051,6 +1087,181 @@ async function processAudio(){
 
 function clearText(){ clearTaskText(tasks[0]?.id); }
 async function pasteText(){ await pasteTaskText(tasks[0]?.id); }
+
+// ══════════════════════════════════════════════════════════════
+//  TASK PERSISTENCE — localStorage + server polling
+//  Rezolvă: refresh în timpul generării → vocea nu se pierde
+// ══════════════════════════════════════════════════════════════
+const PENDING_TASK_KEY = 'viralio_pending_task';
+
+function savePendingTask(taskId, uiTaskId, text, voice){
+    try {
+        localStorage.setItem(PENDING_TASK_KEY, JSON.stringify({
+            taskId,
+            uiTaskId,
+            text: text.substring(0, 60),
+            fullText: text,
+            voice,
+            startedAt: Date.now(),
+            token: getToken()
+        }));
+    } catch(e) {}
+}
+
+function clearPendingTask(){
+    try { localStorage.removeItem(PENDING_TASK_KEY); } catch(e) {}
+}
+
+function loadPendingTask(){
+    try {
+        const raw = localStorage.getItem(PENDING_TASK_KEY);
+        if(!raw) return null;
+        const data = JSON.parse(raw);
+        // Expirat după 15 minute (generarea serverului max ~10 min)
+        if(Date.now() - data.startedAt > 15 * 60 * 1000){
+            clearPendingTask(); return null;
+        }
+        return data;
+    } catch(e) { return null; }
+}
+
+// Polling server la fiecare 3s până la finalizare (max 6 min = 120 încercări)
+function pollTaskStatus(serverTaskId, onDone, onFail){
+    const token = getToken();
+    if(!token) return;
+    const MAX_ATTEMPTS = 120;
+    let attempts = 0;
+
+    const poll = async () => {
+        if(attempts++ >= MAX_ATTEMPTS){
+            onFail('Timeout: generarea a durat prea mult. Caracterele au fost returnate automat.');
+            return;
+        }
+        try {
+            const res = await fetch(`/api/task-status/${serverTaskId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if(!res.ok){
+                if(res.status === 404){ onFail('Task expirat sau negăsit. Serverul a returnat caracterele.'); return; }
+                setTimeout(poll, 3000); return; // erori temporare → reîncercăm
+            }
+            const data = await res.json();
+            if(data.status === 'completed')     onDone(data);
+            else if(data.status === 'failed')   onFail(data.error || 'Eroare la generare.');
+            else                                setTimeout(poll, 3000); // pending → mai așteptăm
+        } catch(e){
+            // Eroare rețea — reîncercăm
+            setTimeout(poll, 3000);
+        }
+    };
+
+    setTimeout(poll, 2000); // Prima verificare după 2s
+}
+
+// ── Recovery după reload ─────────────────────────────────────
+// Apelat din window.onload după autentificare
+function resumePendingTask(){
+    const pending = loadPendingTask();
+    if(!pending) return;
+
+    const { taskId, text, fullText, voice, startedAt } = pending;
+    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+    console.log(`🔄 [RECOVERY] Task ${taskId} găsit (${elapsed}s în urmă)`);
+
+    showRecoveryBanner('loading', voice, elapsed);
+
+    pollTaskStatus(
+        taskId,
+        // onDone
+        async (result) => {
+            clearPendingTask();
+            showRecoveryBanner('done', voice, 0, result.audioUrl);
+            if(result.remaining_chars != null){
+                currentVoiceCharacters = result.remaining_chars;
+                const nc = document.getElementById('nav-chars');
+                if(nc) nc.innerText = currentVoiceCharacters.toLocaleString('ro-RO');
+            }
+            await addToHistory(fullText || text, voice, result.audioUrl);
+            showToast('✅ Vocea ta din sesiunea anterioară este gata!');
+        },
+        // onFail
+        (errMsg) => {
+            clearPendingTask();
+            showRecoveryBanner('failed', voice, 0, null, errMsg);
+        }
+    );
+}
+
+// ── Recovery Banner UI ───────────────────────────────────────
+function showRecoveryBanner(state, voice, elapsed, audioUrl, errMsg){
+    const banner = document.getElementById('recovery-banner');
+    if(!banner) return;
+    banner.style.display = 'block';
+
+    if(state === 'loading'){
+        banner.style.background = '#eef2ff';
+        banner.style.borderTopColor = '#c7d2fe';
+        let sec = elapsed;
+        banner.innerHTML = `
+            <div style="display:flex;align-items:center;gap:12px;max-width:800px;margin:0 auto;">
+                <div style="width:36px;height:36px;border-radius:10px;background:rgba(99,102,241,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <span class="spin-sm" style="border-color:rgba(99,102,241,0.3);border-top-color:#6366f1;width:16px;height:16px;"></span>
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:13px;font-weight:800;color:#1e293b;">Generare în curs după reload...</div>
+                    <div style="font-size:11px;color:#64748b;font-weight:600;margin-top:2px;">
+                        Vocea <strong>${voice}</strong> se procesează pe server
+                        (<span id="recovery-timer">${sec}</span>s)
+                    </div>
+                </div>
+            </div>`;
+        // Timer live
+        if(banner._iv) clearInterval(banner._iv);
+        banner._iv = setInterval(() => {
+            const el = document.getElementById('recovery-timer');
+            if(el) el.innerText = ++sec; else clearInterval(banner._iv);
+        }, 1000);
+
+    } else if(state === 'done'){
+        if(banner._iv) clearInterval(banner._iv);
+        banner.style.background = '#f0fdf4';
+        banner.style.borderTopColor = '#bbf7d0';
+        banner.innerHTML = `
+            <div style="display:flex;align-items:center;gap:10px;max-width:800px;margin:0 auto;">
+                <div style="width:36px;height:36px;border-radius:10px;background:#dcfce7;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;">✅</div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:13px;font-weight:800;color:#166534;">Vocea ta e gata!</div>
+                    <div style="font-size:11px;color:#16a34a;font-weight:600;margin-top:1px;">Generarea din sesiunea anterioară s-a finalizat · salvată în Istoric</div>
+                </div>
+                ${audioUrl ? `
+                <button onclick="launchPlayer('${audioUrl}','${voice}','');showToast('▶ Redare...')"
+                    style="padding:7px 14px;background:#166534;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+                    ▶ Play
+                </button>
+                <a href="${audioUrl}" download="viralio_recovery.mp3"
+                    style="padding:7px 12px;background:#dcfce7;border:1px solid #bbf7d0;border-radius:9px;font-size:12px;font-weight:800;color:#166534;text-decoration:none;white-space:nowrap;flex-shrink:0;">
+                    ⬇ Descarcă
+                </a>` : ''}
+                <button onclick="document.getElementById('recovery-banner').style.display='none'"
+                    style="width:28px;height:28px;background:#dcfce7;border:none;border-radius:8px;cursor:pointer;font-size:14px;color:#166534;flex-shrink:0;">✕</button>
+            </div>`;
+
+    } else if(state === 'failed'){
+        if(banner._iv) clearInterval(banner._iv);
+        banner.style.background = '#fef2f2';
+        banner.style.borderTopColor = '#fecaca';
+        banner.innerHTML = `
+            <div style="display:flex;align-items:center;gap:12px;max-width:800px;margin:0 auto;">
+                <div style="width:36px;height:36px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;">❌</div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:13px;font-weight:800;color:#991b1b;">Generarea a eșuat</div>
+                    <div style="font-size:11px;color:#b91c1c;font-weight:600;margin-top:1px;">${errMsg||'Eroare necunoscută'} · caracterele au fost returnate automat</div>
+                </div>
+                <button onclick="document.getElementById('recovery-banner').style.display='none'"
+                    style="width:28px;height:28px;background:#fee2e2;border:none;border-radius:8px;cursor:pointer;font-size:14px;color:#991b1b;flex-shrink:0;">✕</button>
+            </div>`;
+    }
+}
 
 // Toast notification simplu
 function showToast(msg){
@@ -1182,6 +1393,23 @@ async function idbClear(){
     });
 }
 
+async function addToHistoryFailed(text, voice){
+    // Adaugă în IndexedDB o intrare fără blob — marcată ca eșuată
+    try {
+        const entry = {
+            text: text.substring(0, 60),
+            fullText: text,
+            voice,
+            blob: null,
+            failed: true,
+            ts: Date.now(),
+            time: new Date().toLocaleTimeString('ro-RO', {hour:'2-digit', minute:'2-digit'})
+        };
+        await idbPut(entry);
+        renderHistory();
+    } catch(e){ console.warn('addToHistoryFailed error:', e); }
+}
+
 async function addToHistory(text, voice, serverUrl){
     try {
         // Descarcă blob-ul audio și salvează-l local
@@ -1224,15 +1452,16 @@ async function renderHistory(){
         box.innerHTML = '';
         for(const h of all){
             const blobUrl = h.blob ? URL.createObjectURL(h.blob) : null;
+            const isFailed = !!h.failed;
             const el = document.createElement('div');
-            el.className = 'p-3 bg-slate-50 border border-slate-100 rounded-xl hover:border-viralio-200 transition-all group flex items-center justify-between gap-3 shadow-sm';
+            el.className = `p-3 border rounded-xl transition-all group flex items-center justify-between gap-3 shadow-sm ${isFailed ? 'bg-red-50 border-red-100 hover:border-red-200' : 'bg-slate-50 border-slate-100 hover:border-viralio-200'}`;
             el.innerHTML = `
-                <button class="hist-play w-9 h-9 shrink-0 rounded-full bg-white shadow-md flex items-center justify-center text-slate-600 group-hover:bg-viralio-600 group-hover:text-white transition-all border border-slate-100 ${!blobUrl?'opacity-40 cursor-not-allowed':''}">
-                    <i class="fa-solid fa-play text-[0.7rem] ml-0.5"></i>
+                <button class="hist-play w-9 h-9 shrink-0 rounded-full bg-white shadow-md flex items-center justify-center transition-all border ${isFailed ? 'border-red-100 opacity-40 cursor-not-allowed text-red-300' : 'border-slate-100 text-slate-600 group-hover:bg-viralio-600 group-hover:text-white'}">
+                    <i class="fa-solid ${isFailed ? 'fa-xmark' : 'fa-play'} text-[0.7rem] ${!isFailed?'ml-0.5':''}"></i>
                 </button>
                 <div class="flex-1 overflow-hidden">
-                    <p class="text-xs font-bold text-slate-800 truncate">${h.text}${h.text.length>=60?'...':''}</p>
-                    <p class="text-[0.65rem] font-bold text-slate-400 mt-0.5"><span class="text-indigo-500">${h.voice}</span> · ${h.time} · <span class="text-emerald-500">💾 local</span></p>
+                    <p class="text-xs font-bold ${isFailed?'text-red-700':'text-slate-800'} truncate">${h.text}${h.text.length>=60?'...':''}</p>
+                    <p class="text-[0.65rem] font-bold text-slate-400 mt-0.5"><span class="${isFailed?'text-red-400':'text-indigo-500'}">${h.voice}</span> · ${h.time} · ${isFailed ? '<span class="text-red-400">⚠ timeout — 0 caractere folosite</span>' : '<span class="text-emerald-500">💾 local</span>'}</p>
                 </div>
                 <button class="hist-use w-8 h-8 shrink-0 rounded-lg bg-indigo-50 border border-indigo-100 hover:bg-viralio-600 hover:text-white hover:border-viralio-600 flex items-center justify-center text-indigo-500 transition-all" title="Încarcă în editor">
                     <i class="fa-solid fa-file-import text-xs"></i>
@@ -1285,6 +1514,9 @@ async function clearHistory(){
 }
 </script>
 
+
+<!-- RECOVERY BANNER — generare în curs după reload de pagină -->
+<div id="recovery-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:999991;padding:14px 20px;box-shadow:0 -4px 24px rgba(99,102,241,0.12);border-top:2px solid #c7d2fe;background:#eef2ff;"></div>
 
 <!-- EROARE BANNER — fix jos, persistent până la close -->
 <div id="error-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:999990;background:#fef2f2;border-top:2px solid #fecaca;padding:14px 20px;box-shadow:0 -4px 24px rgba(239,68,68,0.12);">
