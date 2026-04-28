@@ -524,7 +524,7 @@ window.onload = async()=>{
     addTask();
     updateSlider('stab'); updateSlider('sim'); updateSlider('speed');
     updateSliderMM('mm-speed'); updateSliderMM('mm-pitch'); updateSliderMM('mm-vol');
-    renderHistory();
+    await renderHistory();
     document.getElementById('vm-result-count').innerText = ALL_VOICES.length;
     const token=getToken();
     if(token){
@@ -1120,63 +1120,169 @@ if(audio){
 function seekTrack(e){ const bg=document.getElementById('track-bg'); if(!bg||!audio) return; const r=bg.getBoundingClientRect(); audio.currentTime=((e.clientX-r.left)/r.width)*audio.duration; }
 
 // ══════════════════════════════════════════════════════════════
-//  8. ISTORIC
+//  8. ISTORIC — IndexedDB (audio blob, 3 zile)
 // ══════════════════════════════════════════════════════════════
-function addToHistory(text, voice, url){
-    const box=document.getElementById('history-box'); if(!box) return;
-    if(box.querySelector('#empty-history')) box.innerHTML='';
-    const hist=JSON.parse(localStorage.getItem('viralio_voice_hist')||'[]');
-    hist.unshift({text:text.substring(0,60), fullText:text, voice, url, time:new Date().toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'})});
-    if(hist.length>20) hist.pop();
-    localStorage.setItem('viralio_voice_hist',JSON.stringify(hist));
-    renderHistory();
-}
+const IDB_NAME = 'viralio_audio_v1';
+const IDB_STORE = 'entries';
+let idb = null;
 
-function renderHistory(){
-    const hist=JSON.parse(localStorage.getItem('viralio_voice_hist')||'[]');
-    const box=document.getElementById('history-box'); if(!box) return;
-    if(!hist.length) return;
-    box.innerHTML='';
-    hist.forEach((h,i)=>{
-        const el=document.createElement('div');
-        el.className='p-3 bg-slate-50 border border-slate-100 rounded-xl hover:border-viralio-200 transition-all group flex items-center justify-between gap-3 shadow-sm';
-        el.dataset.url=h.url; el.dataset.voice=h.voice; el.dataset.text=h.text;
-        el.innerHTML=`
-            <button class="hist-play w-9 h-9 shrink-0 rounded-full bg-white shadow-md flex items-center justify-center text-slate-600 group-hover:bg-viralio-600 group-hover:text-white transition-all border border-slate-100">
-                <i class="fa-solid fa-play text-[0.7rem] ml-0.5"></i>
-            </button>
-            <div class="flex-1 overflow-hidden cursor-pointer hist-play">
-                <p class="text-xs font-bold text-slate-800 truncate">${h.text}...</p>
-                <p class="text-[0.65rem] font-bold text-slate-400 mt-0.5"><span class="text-indigo-500">${h.voice}</span> · ${h.time}</p>
-            </div>
-            <button class="hist-use w-8 h-8 shrink-0 rounded-lg bg-indigo-50 border border-indigo-100 hover:bg-viralio-600 hover:text-white hover:border-viralio-600 flex items-center justify-center text-indigo-500 transition-all" title="Încarcă în editor">
-                <i class="fa-solid fa-file-import text-xs"></i>
-            </button>
-            <a href="${h.url}" download="viralio_voice.mp3" class="w-8 h-8 shrink-0 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-500 transition-all">
-                <i class="fa-solid fa-download text-xs"></i>
-            </a>`;
-        el.querySelectorAll('.hist-play').forEach(btn=>{
-            btn.addEventListener('click',()=>launchPlayer(h.url, h.voice, h.text));
-        });
-        const useBtn = el.querySelector('.hist-use');
-        if(useBtn) useBtn.addEventListener('click', ()=>{
-            // Încarcă textul în primul task disponibil / activ
-            const fullText = h.fullText || h.text;
-            if(tasks.length > 0){
-                const t = tasks[0];
-                t.text = fullText;
-                const ta = document.getElementById('ta-'+t.id);
-                if(ta){ ta.value = fullText; ta.dispatchEvent(new Event('input')); }
-                updateTaskCounters(t.id);
-                switchTab('settings');
-                showToast('✅ Text încărcat în editor!');
+function openIDB(){
+    return new Promise((res, rej) => {
+        if(idb) return res(idb);
+        const req = indexedDB.open(IDB_NAME, 1);
+        req.onupgradeneeded = e => {
+            const db = e.target.result;
+            if(!db.objectStoreNames.contains(IDB_STORE)){
+                const store = db.createObjectStore(IDB_STORE, { keyPath: 'id', autoIncrement: true });
+                store.createIndex('ts', 'ts', { unique: false });
             }
-        });
-        box.appendChild(el);
+        };
+        req.onsuccess = e => { idb = e.target.result; res(idb); };
+        req.onerror = e => rej(e.target.error);
     });
 }
 
-function clearHistory(){ localStorage.removeItem('viralio_voice_hist'); const box=document.getElementById('history-box'); if(box) box.innerHTML='<div class="text-center text-slate-400 text-sm font-medium py-10" id="empty-history">Nu ai generat nimic încă.</div>'; }
+async function idbGetAll(){
+    const db = await openIDB();
+    return new Promise((res, rej) => {
+        const tx = db.transaction(IDB_STORE, 'readonly');
+        const req = tx.objectStore(IDB_STORE).getAll();
+        req.onsuccess = () => res(req.result || []);
+        req.onerror = e => rej(e.target.error);
+    });
+}
+
+async function idbPut(entry){
+    const db = await openIDB();
+    return new Promise((res, rej) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).add(entry);
+        tx.oncomplete = () => res();
+        tx.onerror = e => rej(e.target.error);
+    });
+}
+
+async function idbDelete(id){
+    const db = await openIDB();
+    return new Promise((res, rej) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).delete(id);
+        tx.oncomplete = () => res();
+        tx.onerror = e => rej(e.target.error);
+    });
+}
+
+async function idbClear(){
+    const db = await openIDB();
+    return new Promise((res, rej) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).clear();
+        tx.oncomplete = () => res();
+        tx.onerror = e => rej(e.target.error);
+    });
+}
+
+async function addToHistory(text, voice, serverUrl){
+    try {
+        // Descarcă blob-ul audio și salvează-l local
+        const resp = await fetch(serverUrl);
+        if(!resp.ok) throw new Error('fetch blob fail');
+        const blob = await resp.blob();
+        const entry = {
+            text: text.substring(0, 60),
+            fullText: text,
+            voice,
+            blob,
+            ts: Date.now(),
+            time: new Date().toLocaleTimeString('ro-RO', {hour:'2-digit', minute:'2-digit'})
+        };
+        await idbPut(entry);
+        renderHistory();
+    } catch(e){
+        console.warn('Nu am putut salva audio local:', e.message);
+        // fallback: salvează fără blob (doar metadata)
+        try {
+            const entry = { text: text.substring(0,60), fullText: text, voice, blob: null, ts: Date.now(),
+                time: new Date().toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}) };
+            await idbPut(entry);
+            renderHistory();
+        } catch(_){}
+    }
+}
+
+async function renderHistory(){
+    const box = document.getElementById('history-box'); if(!box) return;
+    try {
+        const all = await idbGetAll();
+        // Sortează desc după timestamp
+        all.sort((a,b) => b.ts - a.ts);
+
+        if(!all.length){
+            box.innerHTML = '<div class="text-center text-slate-400 text-sm font-medium py-10" id="empty-history">Nu ai generat nimic încă.</div>';
+            return;
+        }
+        box.innerHTML = '';
+        for(const h of all){
+            const blobUrl = h.blob ? URL.createObjectURL(h.blob) : null;
+            const el = document.createElement('div');
+            el.className = 'p-3 bg-slate-50 border border-slate-100 rounded-xl hover:border-viralio-200 transition-all group flex items-center justify-between gap-3 shadow-sm';
+            el.innerHTML = `
+                <button class="hist-play w-9 h-9 shrink-0 rounded-full bg-white shadow-md flex items-center justify-center text-slate-600 group-hover:bg-viralio-600 group-hover:text-white transition-all border border-slate-100 ${!blobUrl?'opacity-40 cursor-not-allowed':''}">
+                    <i class="fa-solid fa-play text-[0.7rem] ml-0.5"></i>
+                </button>
+                <div class="flex-1 overflow-hidden">
+                    <p class="text-xs font-bold text-slate-800 truncate">${h.text}${h.text.length>=60?'...':''}</p>
+                    <p class="text-[0.65rem] font-bold text-slate-400 mt-0.5"><span class="text-indigo-500">${h.voice}</span> · ${h.time} · <span class="text-emerald-500">💾 local</span></p>
+                </div>
+                <button class="hist-use w-8 h-8 shrink-0 rounded-lg bg-indigo-50 border border-indigo-100 hover:bg-viralio-600 hover:text-white hover:border-viralio-600 flex items-center justify-center text-indigo-500 transition-all" title="Încarcă în editor">
+                    <i class="fa-solid fa-file-import text-xs"></i>
+                </button>
+                ${blobUrl ? `<a href="${blobUrl}" download="viralio_${h.id||'voice'}.mp3" class="w-8 h-8 shrink-0 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-500 transition-all"><i class="fa-solid fa-download text-xs"></i></a>` : '<div class="w-8 h-8 shrink-0 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300 text-xs" title="Audio expirat"><i class="fa-solid fa-ban"></i></div>'}
+                <button class="hist-del w-7 h-7 shrink-0 rounded-lg bg-white border border-slate-200 hover:bg-red-50 hover:border-red-200 flex items-center justify-center text-slate-300 hover:text-red-400 transition-all text-xs" title="Șterge">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>`;
+
+            // Play
+            const playBtn = el.querySelector('.hist-play');
+            if(playBtn && blobUrl){
+                playBtn.addEventListener('click', () => launchPlayer(blobUrl, h.voice, h.fullText||h.text));
+            }
+            // Încarcă în editor
+            const useBtn = el.querySelector('.hist-use');
+            if(useBtn) useBtn.addEventListener('click', () => {
+                const fullText = h.fullText || h.text;
+                if(tasks.length > 0){
+                    const t = tasks[0];
+                    t.text = fullText;
+                    const ta = document.getElementById('ta-'+t.id);
+                    if(ta){ ta.value = fullText; ta.dispatchEvent(new Event('input')); }
+                    updateTaskCounters(t.id);
+                    switchTab('settings');
+                    showToast('✅ Text încărcat în editor!');
+                }
+            });
+            // Șterge individual
+            const delBtn = el.querySelector('.hist-del');
+            if(delBtn) delBtn.addEventListener('click', async () => {
+                await idbDelete(h.id);
+                el.remove();
+                // Dacă e gol, arată placeholder
+                const remaining = box.querySelectorAll('.p-3');
+                if(!remaining.length) box.innerHTML = '<div class="text-center text-slate-400 text-sm font-medium py-10" id="empty-history">Nu ai generat nimic încă.</div>';
+            });
+
+            box.appendChild(el);
+        }
+    } catch(e){
+        console.error('renderHistory error:', e);
+    }
+}
+
+async function clearHistory(){
+    await idbClear();
+    const box = document.getElementById('history-box');
+    if(box) box.innerHTML = '<div class="text-center text-slate-400 text-sm font-medium py-10" id="empty-history">Nu ai generat nimic încă.</div>';
+}
 </script>
 
 
