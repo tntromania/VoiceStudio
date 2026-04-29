@@ -248,28 +248,20 @@ app.post('/api/generate', authenticate, (req, res) => {
         const { text, voice, stability, similarity_boost, speed } = req.body;
         const user = await User.findById(req.userId);
 
-        // ── Verificare abonament activ (din Hub via req.user) ───────
+        // ── Billing: abonament = gratis, fără abonament = scade caractere ──
         const subStatus = req.user?.subscriptionStatus;
         const hasActiveSub = subStatus === 'active' || subStatus === 'canceling';
-        if (!hasActiveSub) {
-            console.warn(`🚫 [Sub] ${req.user?.email} — status: ${subStatus}`);
-            return res.status(403).json({
-                error: 'Această funcție necesită un abonament activ. Alege un plan pe viralio.ro!',
-                requiresSubscription: true
-            });
-        }
-        // ─────────────────────────────────────────────────────────
-
-        console.log(`📝 [${new Date().toLocaleTimeString('ro-RO')}] ${user.name} (${user.email}) | chars: ${text?.length || 0} (fără spații: ${(text || '').replace(/\s+/g, '').length}) | voce: ${voice}`);
 
         if (!text) return res.status(400).json({ error: "Textul lipsește." });
 
         const textWithoutSpaces = text.replace(/\s+/g, '');
         const cost = textWithoutSpaces.length;
 
-        if (user.voice_characters < cost) {
+        if (!hasActiveSub && user.voice_characters < cost) {
             return res.status(403).json({ error: `Caractere insuficiente. Ai nevoie de ${cost} caractere.` });
         }
+
+        console.log(`📝 [${new Date().toLocaleTimeString('ro-RO')}] ${user.name} (${user.email}) | sub=${hasActiveSub?'✅':'❌'} | chars: ${text?.length || 0} | voce: ${voice}`);
 
         // ── Cale directă Minimax (userul a ales explicit o voce Minimax) ──────
         if (req.body.provider === 'minimax') {
@@ -277,9 +269,8 @@ app.post('/api/generate', authenticate, (req, res) => {
                 const mmUrl = await generateWithMinimax(text, req.body.minimaxVoiceId, speed);
                 const mmFile = `voice_${Date.now()}.mp3`;
                 await downloadAudio(mmUrl, path.join(DOWNLOAD_DIR, mmFile));
-                // user.voice_characters -= cost;  // ← MOCK MODE: cadou
-                // await user.save();
-                console.log(`🎙️ [Minimax Direct] ${mmFile} | Chars rămase: ${user.voice_characters} [MOCK - cadou]`);
+                if (!hasActiveSub) { user.voice_characters -= cost; await user.save(); }
+                console.log(`🎙️ [Minimax Direct] ${mmFile} | sub=${hasActiveSub} | Chars rămase: ${user.voice_characters}`);
                 return res.json({ audioUrl: `/downloads/${mmFile}`, remaining_chars: user.voice_characters, provider: 'minimax' });
             } catch(mmDirectErr) {
                 console.error('❌ Minimax direct error:', mmDirectErr.message);
@@ -294,8 +285,8 @@ app.post('/api/generate', authenticate, (req, res) => {
                 const mmUrl = await generateWithMinimax(text, mmVoiceId, speed);
                 const mmFile = `voice_${Date.now()}.mp3`;
                 await downloadAudio(mmUrl, path.join(DOWNLOAD_DIR, mmFile));
-                // user.voice_characters -= cost;  // ← MOCK MODE: cadou
-                console.log(`🎙️ [Minimax Default] ${mmFile} | Chars rămase: ${user.voice_characters} [MOCK - cadou]`);
+                if (!hasActiveSub) { user.voice_characters -= cost; await user.save(); }
+                console.log(`🎙️ [Minimax Default] ${mmFile} | sub=${hasActiveSub} | Chars rămase: ${user.voice_characters}`);
                 return res.json({ audioUrl: `/downloads/${mmFile}`, remaining_chars: user.voice_characters, provider: 'minimax' });
             } catch(mmDefaultErr) {
                 console.error('❌ Minimax default error:', mmDefaultErr.message);
@@ -396,10 +387,9 @@ app.post('/api/generate', authenticate, (req, res) => {
         const filePath = path.join(DOWNLOAD_DIR, fileName);
         await downloadAudio(outputUrl, filePath);
 
-        // user.voice_characters -= cost;  // ← MOCK MODE: dezactivat temporar
-        // await user.save();
+        if (!hasActiveSub) { user.voice_characters -= cost; await user.save(); }
 
-        console.log(`🎤 [${usedProvider.toUpperCase()}] Audio salvat: ${fileName} | Chars rămase: ${user.voice_characters} [MOCK - nu s-au scăzut]`);
+        console.log(`🎤 [${usedProvider.toUpperCase()}] Audio salvat: ${fileName} | sub=${hasActiveSub} | Chars rămase: ${user.voice_characters}`);
         res.json({ audioUrl: `/downloads/${fileName}`, remaining_chars: user.voice_characters, provider: usedProvider });
 
     } catch (error) {
