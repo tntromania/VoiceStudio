@@ -11,6 +11,9 @@ const jwt = require('jsonwebtoken');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ── Hub Auth (autentificare centralizată + subscription) ──
+const { authenticate: hubAuthenticate, hubAPI } = require('./hub-auth');
+
 // Configurare Google
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -44,16 +47,8 @@ const UserSchema = new mongoose.Schema({
 
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
 
-// Middleware Autentificare
-const authenticate = (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: "Trebuie să fii logat!" });
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.userId = decoded.userId;
-        next();
-    } catch (e) { return res.status(401).json({ error: "Sesiune expirată." }); }
-};
+// Middleware Autentificare — delegat către Hub (include subscriptionStatus în req.user)
+const authenticate = hubAuthenticate;
 
 // ==========================================
 // RUTE AUTH
@@ -251,11 +246,11 @@ app.post('/api/generate', authenticate, (req, res) => {
         const { text, voice, stability, similarity_boost, speed } = req.body;
         const user = await User.findById(req.userId);
 
-        // ── Verificare abonament activ ────────────────────────────
-        const subStatus = user?.subscriptionStatus;
+        // ── Verificare abonament activ (din Hub via req.user) ───────
+        const subStatus = req.user?.subscriptionStatus;
         const hasActiveSub = subStatus === 'active' || subStatus === 'canceling';
         if (!hasActiveSub) {
-            console.warn(`🚫 [Sub] ${user?.email} — status: ${subStatus}`);
+            console.warn(`🚫 [Sub] ${req.user?.email} — status: ${subStatus}`);
             return res.status(403).json({
                 error: 'Această funcție necesită un abonament activ. Alege un plan pe viralio.ro!',
                 requiresSubscription: true
