@@ -224,10 +224,41 @@ async function pollTask(taskId, maxWait = 75000) {
 }
 
 // ==========================================
+// QUEUE PER USER — un singur task activ/user
+// ==========================================
+const userQueues = {};  // { userId: Promise }
+
+function queueForUser(userId, task) {
+    // Înlănțuim task-ul după cel curent (dacă există), altfel îl rulăm direct
+    const prev = userQueues[userId] || Promise.resolve();
+    const next = prev.then(() => task()).finally(() => {
+        // Curățăm intrarea dacă nu mai e nimic în coadă
+        if (userQueues[userId] === next) delete userQueues[userId];
+    });
+    userQueues[userId] = next;
+    return next;
+}
+
+// ==========================================
 // RUTĂ GENERARE VOCE
 // ==========================================
-app.post('/api/generate', authenticate, async (req, res) => {
-    try {
+app.post('/api/generate', authenticate, (req, res) => {
+    // ── Verificare abonament activ ────────────────────────────
+    const subStatus = req.user?.subscriptionStatus;
+    const hasActiveSub = subStatus === 'active' || subStatus === 'canceling';
+    if (!hasActiveSub) {
+        return res.status(403).json({
+            error: 'Această funcție necesită un abonament activ. Alege un plan pe viralio.ro!',
+            requiresSubscription: true
+        });
+    }
+    // ─────────────────────────────────────────────────────────
+
+    const userId = req.userId.toString();
+    if (userQueues[userId]) {
+        console.log(`⏳ [Queue] ${userId} — task adăugat în coadă (un task deja activ)`);
+    }
+    queueForUser(userId, async () => { try {
         const { text, voice, stability, similarity_boost, speed } = req.body;
         const user = await User.findById(req.userId);
 
@@ -365,7 +396,7 @@ app.post('/api/generate', authenticate, async (req, res) => {
         }
 
         res.status(500).json({ error: error.message || "Eroare tehnică la generarea vocii. Încearcă din nou." });
-    }
+    } }); // end queueForUser
 });
 
 // ==========================================
