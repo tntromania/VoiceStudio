@@ -243,17 +243,6 @@ function queueForUser(userId, task) {
 // RUTĂ GENERARE VOCE
 // ==========================================
 app.post('/api/generate', authenticate, (req, res) => {
-    // ── Verificare abonament activ ────────────────────────────
-    const subStatus = req.user?.subscriptionStatus;
-    const hasActiveSub = subStatus === 'active' || subStatus === 'canceling';
-    if (!hasActiveSub) {
-        return res.status(403).json({
-            error: 'Această funcție necesită un abonament activ. Alege un plan pe viralio.ro!',
-            requiresSubscription: true
-        });
-    }
-    // ─────────────────────────────────────────────────────────
-
     const userId = req.userId.toString();
     if (userQueues[userId]) {
         console.log(`⏳ [Queue] ${userId} — task adăugat în coadă (un task deja activ)`);
@@ -261,6 +250,18 @@ app.post('/api/generate', authenticate, (req, res) => {
     queueForUser(userId, async () => { try {
         const { text, voice, stability, similarity_boost, speed } = req.body;
         const user = await User.findById(req.userId);
+
+        // ── Verificare abonament activ ────────────────────────────
+        const subStatus = user?.subscriptionStatus;
+        const hasActiveSub = subStatus === 'active' || subStatus === 'canceling';
+        if (!hasActiveSub) {
+            console.warn(`🚫 [Sub] ${user?.email} — status: ${subStatus}`);
+            return res.status(403).json({
+                error: 'Această funcție necesită un abonament activ. Alege un plan pe viralio.ro!',
+                requiresSubscription: true
+            });
+        }
+        // ─────────────────────────────────────────────────────────
 
         console.log(`📝 [${new Date().toLocaleTimeString('ro-RO')}] ${user.name} (${user.email}) | chars: ${text?.length || 0} (fără spații: ${(text || '').replace(/\s+/g, '').length}) | voce: ${voice}`);
 
