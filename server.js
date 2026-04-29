@@ -275,13 +275,29 @@ app.post('/api/generate', authenticate, (req, res) => {
                 const mmUrl = await generateWithMinimax(text, req.body.minimaxVoiceId, speed);
                 const mmFile = `voice_${Date.now()}.mp3`;
                 await downloadAudio(mmUrl, path.join(DOWNLOAD_DIR, mmFile));
-                user.voice_characters -= cost;
-                await user.save();
-                console.log(`🎙️ [Minimax Direct] ${mmFile} | Chars rămase: ${user.voice_characters}`);
+                // user.voice_characters -= cost;  // ← MOCK MODE: cadou
+                // await user.save();
+                console.log(`🎙️ [Minimax Direct] ${mmFile} | Chars rămase: ${user.voice_characters} [MOCK - cadou]`);
                 return res.json({ audioUrl: `/downloads/${mmFile}`, remaining_chars: user.voice_characters, provider: 'minimax' });
             } catch(mmDirectErr) {
                 console.error('❌ Minimax direct error:', mmDirectErr.message);
                 return res.status(500).json({ error: mmDirectErr.message || 'Eroare Minimax. Încearcă din nou.' });
+            }
+        }
+
+        // ── Default forțat pe Minimax dacă nu s-a specificat provider ──
+        if (!req.body.provider) {
+            try {
+                const mmVoiceId = req.body.minimaxVoiceId || req.body.voiceId || null;
+                const mmUrl = await generateWithMinimax(text, mmVoiceId, speed);
+                const mmFile = `voice_${Date.now()}.mp3`;
+                await downloadAudio(mmUrl, path.join(DOWNLOAD_DIR, mmFile));
+                // user.voice_characters -= cost;  // ← MOCK MODE: cadou
+                console.log(`🎙️ [Minimax Default] ${mmFile} | Chars rămase: ${user.voice_characters} [MOCK - cadou]`);
+                return res.json({ audioUrl: `/downloads/${mmFile}`, remaining_chars: user.voice_characters, provider: 'minimax' });
+            } catch(mmDefaultErr) {
+                console.error('❌ Minimax default error:', mmDefaultErr.message);
+                return res.status(500).json({ error: mmDefaultErr.message || 'Eroare Minimax. Încearcă din nou.' });
             }
         }
 
