@@ -239,8 +239,10 @@ function queueForUser(userId, task) {
 // ==========================================
 app.post('/api/generate', authenticate, (req, res) => {
     const userId = req.userId.toString();
+    // Respingem imediat dacă userul are deja un task activ
     if (userQueues[userId]) {
-        console.log(`⏳ [Queue] ${userId} — task adăugat în coadă (un task deja activ)`);
+        console.warn(`🚫 [Queue] ${userId} — task respins, unul deja activ`);
+        return res.status(429).json({ error: 'Ai deja un task în curs. Așteaptă să se termine!' });
     }
     queueForUser(userId, async () => { try {
         const { text, voice, stability, similarity_boost, speed } = req.body;
