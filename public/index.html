@@ -531,6 +531,7 @@ window.onload = async()=>{
     updateSlider('stab'); updateSlider('sim'); updateSlider('speed');
     updateSliderMM('mm-speed'); updateSliderMM('mm-pitch'); updateSliderMM('mm-vol');
     renderHistory();
+    switchProvider('minimax'); // forțăm Minimax la load
     document.getElementById('vm-result-count').innerText = ALL_VOICES.length;
     // Fetch status server la intrare — arată popup dacă e down
     await fetchServerStatus(true);
@@ -926,12 +927,12 @@ document.addEventListener('DOMContentLoaded',()=>{
 // ══════════════════════════════════════════════════════════════
 let tasks = [];
 let taskIdCounter = 0;
-const MAX_TASKS = 3;
+const MAX_TASKS = 1;
 
 function getRealCharCount(text){ return text.replace(/\s+/g,'').length; }
 
 function addTask(){
-    if(tasks.length >= MAX_TASKS){ showToast(`⚠️ Maxim ${MAX_TASKS} task-uri simultane!`); return; }
+    if(tasks.length >= MAX_TASKS){ showToast('⚠️ Termină task-ul curent înainte să adaugi altul!'); return; }
     const id = ++taskIdCounter;
     tasks.push({ id, text: '', status: 'idle', audioUrl: null, audio: null });
     renderTasks();
@@ -1104,6 +1105,11 @@ async function processTaskAudio(id){
     if(!token){ openLoginModal(); return; }
     const t = tasks.find(t=>t.id===id);
     if(!t) return;
+    // Blochează dacă există deja un task în generare
+    if(tasks.some(t2 => t2.id !== id && t2.status === 'generating')){
+        showToast('⏳ Așteaptă să se termine task-ul curent!');
+        return;
+    }
     const text = t.text.trim();
     if(!text) return alert('Scrie text pentru a genera vocea.');
     const cost = getRealCharCount(text);
