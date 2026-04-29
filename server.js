@@ -351,10 +351,10 @@ app.post('/api/generate', authenticate, async (req, res) => {
         const filePath = path.join(DOWNLOAD_DIR, fileName);
         await downloadAudio(outputUrl, filePath);
 
-        user.voice_characters -= cost;
-        await user.save();
+        // user.voice_characters -= cost;  // ← MOCK MODE: dezactivat temporar
+        // await user.save();
 
-        console.log(`🎤 [${usedProvider.toUpperCase()}] Audio salvat: ${fileName} | Chars rămase: ${user.voice_characters}`);
+        console.log(`🎤 [${usedProvider.toUpperCase()}] Audio salvat: ${fileName} | Chars rămase: ${user.voice_characters} [MOCK - nu s-au scăzut]`);
         res.json({ audioUrl: `/downloads/${fileName}`, remaining_chars: user.voice_characters, provider: usedProvider });
 
     } catch (error) {
