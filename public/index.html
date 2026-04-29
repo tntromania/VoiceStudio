@@ -763,8 +763,8 @@ function updateSliderMM(id){
 // ══════════════════════════════════════════════════════════════
 //  4. VOICE MODAL
 // ══════════════════════════════════════════════════════════════
-let activeVoice   = 'Roger';
-let activeVoiceId = 'CwhRBWXzGAHq8TQ4Fs17';
+let activeVoice   = 'Abbess';
+let activeVoiceId = '209533299589205'; // Minimax default
 let vmFilter = 'all';
 let vmSearch = '';
 let vmSort   = 'az';
@@ -1153,6 +1153,15 @@ async function processTaskAudio(id){
         if(!res.ok){
             await logApiCall(false);
             const errMsg = data.error || `Eroare HTTP ${res.status}`;
+            // 429 = queue ocupat, 403 = abonament — nu schimbăm provider-ul
+            if(res.status === 429) {
+                showToast(`⏳ ${errMsg}`);
+                t.status = 'idle'; renderTasks(); return;
+            }
+            if(res.status === 403) {
+                showToast(`🔒 ${errMsg}`);
+                t.status = 'idle'; renderTasks(); return;
+            }
             const fallback = activeProvider==='elevenlabs' ? 'minimax' : 'elevenlabs';
             switchProvider(fallback);
             showToast(`❌ ${errMsg} — am comutat la ${fallback.charAt(0).toUpperCase()+fallback.slice(1)}`);
