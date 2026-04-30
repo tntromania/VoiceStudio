@@ -141,7 +141,7 @@ async function generateWithMinimax(text, voiceId, speed, pitch = 0, vol = 1) {
             language_boost: 'Auto',
             with_transcript: false
         }),
-        signal: AbortSignal.timeout(25000)
+        signal: AbortSignal.timeout(60000)
     });
 
     if (!response.ok) {
@@ -155,7 +155,7 @@ async function generateWithMinimax(text, voiceId, speed, pitch = 0, vol = 1) {
     }
 
     console.log(`✅ [Minimax] Task creat: ${data.task_id}`);
-    return await pollTask(data.task_id, 75000);
+    return await pollTask(data.task_id, 300000);
 }
 
 // ==========================================
@@ -178,7 +178,7 @@ function downloadAudio(url, dest) {
 // ==========================================
 // HELPER: Polling task până la finalizare
 // ==========================================
-async function pollTask(taskId, maxWait = 75000) {
+async function pollTask(taskId, maxWait = 300000) {
     const interval = 3000;
     const maxAttempts = Math.floor(maxWait / interval);
 
@@ -189,7 +189,7 @@ async function pollTask(taskId, maxWait = 75000) {
         try {
             response = await fetch(`${AI33_BASE_URL}/v1/task/${taskId}`, {
                 headers: { 'xi-api-key': AI33_API_KEY },
-                signal: AbortSignal.timeout(15000)
+                signal: AbortSignal.timeout(30000)
             });
         } catch (fetchErr) {
             console.warn(`⚠️ Polling eroare attempt ${i+1}: ${fetchErr.message}`);
@@ -215,27 +215,33 @@ async function pollTask(taskId, maxWait = 75000) {
         }
     }
 
-    throw new Error("Generarea a durat prea mult (75s). Încearcă din nou.");
+    throw new Error("Generarea a durat prea mult (300s). Încearcă din nou.");
 }
 
 // ==========================================
-// CONCURRENT TASKS PER USER — max 3 simultan
+// QUEUE PER USER — un singur task activ/user
 // ==========================================
-const userActiveTasks = {};  // { userId: number }
-const MAX_CONCURRENT = 3;
+const userQueues = {};  // { userId: Promise }
+
+function queueForUser(userId, task) {
+    const prev = userQueues[userId] || Promise.resolve();
+    const next = prev.then(() => task()).finally(() => {
+        if (userQueues[userId] === next) delete userQueues[userId];
+    });
+    userQueues[userId] = next;
+    return next;
+}
 
 // ==========================================
 // RUTĂ GENERARE VOCE
 // ==========================================
 app.post('/api/generate', authenticate, (req, res) => {
     const userId = req.userId.toString();
-    const active = userActiveTasks[userId] || 0;
-    if (active >= MAX_CONCURRENT) {
-        console.warn(`🚫 [Limit] ${userId} — ${active} task-uri active, limită atinsă`);
-        return res.status(429).json({ error: `Ai deja ${MAX_CONCURRENT} task-uri în curs. Așteaptă să se termine unul!` });
+    if (userQueues[userId]) {
+        console.warn(`🚫 [Queue] ${userId} — task respins, unul deja activ`);
+        return res.status(429).json({ error: 'Ai deja un task în curs. Așteaptă să se termine!' });
     }
-    userActiveTasks[userId] = active + 1;
-    (async () => { try {
+    queueForUser(userId, async () => { try {
         const { text, voice, stability, similarity_boost, speed } = req.body;
         // FIX: extragem și pitch/vol din body
         const pitch = req.body.pitch;
@@ -314,7 +320,7 @@ app.post('/api/generate', authenticate, (req, res) => {
                         },
                         with_transcript: false
                     }),
-                    signal: AbortSignal.timeout(25000)
+                    signal: AbortSignal.timeout(60000)
                 }
             );
         } catch (fetchErr) {
@@ -361,7 +367,7 @@ app.post('/api/generate', authenticate, (req, res) => {
             }
             console.log(`✅ Task creat: ${responseData.task_id}`);
             try {
-                outputUrl = await pollTask(responseData.task_id);
+                outputUrl = await pollTask(responseData.task_id, 300000);
             } catch (pollErr) {
                 providerLog['elevenlabs'].push(false);
                 if (providerLog['elevenlabs'].length > 10) providerLog['elevenlabs'].shift();
@@ -396,10 +402,7 @@ app.post('/api/generate', authenticate, (req, res) => {
         }
 
         res.status(500).json({ error: error.message || "Eroare tehnică la generarea vocii. Încearcă din nou." });
-    } finally {
-        userActiveTasks[userId] = Math.max(0, (userActiveTasks[userId] || 1) - 1);
-        if (userActiveTasks[userId] === 0) delete userActiveTasks[userId];
-    } })();
+    } }); // end queueForUser
 });
 
 // ==========================================
@@ -436,7 +439,7 @@ app.get('/api/voices/minimax', async (req, res) => {
                     'xi-api-key': AI33_API_KEY
                 },
                 body: JSON.stringify({ page, page_size: PAGE_SIZE, tag_list: [] }),
-                signal: AbortSignal.timeout(15000)
+                signal: AbortSignal.timeout(30000)
             });
 
             if (!response.ok) {
