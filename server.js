@@ -257,7 +257,7 @@ app.post('/api/generate', authenticate, (req, res) => {
         const textWithoutSpaces = text.replace(/\s+/g, '');
         const cost = textWithoutSpaces.length;
 
-        if (!hasActiveSub && user.voice_characters < cost) {
+        if (user.voice_characters < cost) {
             return res.status(403).json({ error: `Caractere insuficiente. Ai nevoie de ${cost} caractere.` });
         }
 
@@ -269,7 +269,7 @@ app.post('/api/generate', authenticate, (req, res) => {
                 const mmUrl = await generateWithMinimax(text, req.body.minimaxVoiceId, speed);
                 const mmFile = `voice_${Date.now()}.mp3`;
                 await downloadAudio(mmUrl, path.join(DOWNLOAD_DIR, mmFile));
-                if (!hasActiveSub) { user.voice_characters -= cost; await user.save(); }
+                user.voice_characters -= cost; await user.save();
                 console.log(`🎙️ [Minimax Direct] ${mmFile} | sub=${hasActiveSub} | Chars rămase: ${user.voice_characters}`);
                 return res.json({ audioUrl: `/downloads/${mmFile}`, remaining_chars: user.voice_characters, provider: 'minimax' });
             } catch(mmDirectErr) {
@@ -285,7 +285,7 @@ app.post('/api/generate', authenticate, (req, res) => {
                 const mmUrl = await generateWithMinimax(text, mmVoiceId, speed);
                 const mmFile = `voice_${Date.now()}.mp3`;
                 await downloadAudio(mmUrl, path.join(DOWNLOAD_DIR, mmFile));
-                if (!hasActiveSub) { user.voice_characters -= cost; await user.save(); }
+                user.voice_characters -= cost; await user.save();
                 console.log(`🎙️ [Minimax Default] ${mmFile} | sub=${hasActiveSub} | Chars rămase: ${user.voice_characters}`);
                 return res.json({ audioUrl: `/downloads/${mmFile}`, remaining_chars: user.voice_characters, provider: 'minimax' });
             } catch(mmDefaultErr) {
@@ -387,7 +387,7 @@ app.post('/api/generate', authenticate, (req, res) => {
         const filePath = path.join(DOWNLOAD_DIR, fileName);
         await downloadAudio(outputUrl, filePath);
 
-        if (!hasActiveSub) { user.voice_characters -= cost; await user.save(); }
+        user.voice_characters -= cost; await user.save();
 
         console.log(`🎤 [${usedProvider.toUpperCase()}] Audio salvat: ${fileName} | sub=${hasActiveSub} | Chars rămase: ${user.voice_characters}`);
         res.json({ audioUrl: `/downloads/${fileName}`, remaining_chars: user.voice_characters, provider: usedProvider });
