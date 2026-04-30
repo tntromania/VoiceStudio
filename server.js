@@ -219,29 +219,23 @@ async function pollTask(taskId, maxWait = 75000) {
 }
 
 // ==========================================
-// QUEUE PER USER — un singur task activ/user
+// CONCURRENT TASKS PER USER — max 3 simultan
 // ==========================================
-const userQueues = {};  // { userId: Promise }
-
-function queueForUser(userId, task) {
-    const prev = userQueues[userId] || Promise.resolve();
-    const next = prev.then(() => task()).finally(() => {
-        if (userQueues[userId] === next) delete userQueues[userId];
-    });
-    userQueues[userId] = next;
-    return next;
-}
+const userActiveTasks = {};  // { userId: number }
+const MAX_CONCURRENT = 3;
 
 // ==========================================
 // RUTĂ GENERARE VOCE
 // ==========================================
 app.post('/api/generate', authenticate, (req, res) => {
     const userId = req.userId.toString();
-    if (userQueues[userId]) {
-        console.warn(`🚫 [Queue] ${userId} — task respins, unul deja activ`);
-        return res.status(429).json({ error: 'Ai deja un task în curs. Așteaptă să se termine!' });
+    const active = userActiveTasks[userId] || 0;
+    if (active >= MAX_CONCURRENT) {
+        console.warn(`🚫 [Limit] ${userId} — ${active} task-uri active, limită atinsă`);
+        return res.status(429).json({ error: `Ai deja ${MAX_CONCURRENT} task-uri în curs. Așteaptă să se termine unul!` });
     }
-    queueForUser(userId, async () => { try {
+    userActiveTasks[userId] = active + 1;
+    (async () => { try {
         const { text, voice, stability, similarity_boost, speed } = req.body;
         // FIX: extragem și pitch/vol din body
         const pitch = req.body.pitch;
@@ -402,7 +396,10 @@ app.post('/api/generate', authenticate, (req, res) => {
         }
 
         res.status(500).json({ error: error.message || "Eroare tehnică la generarea vocii. Încearcă din nou." });
-    } }); // end queueForUser
+    } finally {
+        userActiveTasks[userId] = Math.max(0, (userActiveTasks[userId] || 1) - 1);
+        if (userActiveTasks[userId] === 0) delete userActiveTasks[userId];
+    } })();
 });
 
 // ==========================================
