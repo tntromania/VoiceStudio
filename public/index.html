@@ -927,12 +927,12 @@ document.addEventListener('DOMContentLoaded',()=>{
 // ══════════════════════════════════════════════════════════════
 let tasks = [];
 let taskIdCounter = 0;
-const MAX_TASKS = 1;
+const MAX_TASKS = 3;
 
 function getRealCharCount(text){ return text.replace(/\s+/g,'').length; }
 
 function addTask(){
-    if(tasks.length >= MAX_TASKS){ showToast('⚠️ Termină task-ul curent înainte să adaugi altul!'); return; }
+    if(tasks.length >= MAX_TASKS){ showToast('⚠️ Poți avea maxim 3 task-uri simultane!'); return; }
     const id = ++taskIdCounter;
     tasks.push({ id, text: '', status: 'idle', audioUrl: null, audio: null });
     renderTasks();
@@ -1105,11 +1105,7 @@ async function processTaskAudio(id){
     if(!token){ openLoginModal(); return; }
     const t = tasks.find(t=>t.id===id);
     if(!t) return;
-    // Blochează dacă există deja un task în generare
-    if(tasks.some(t2 => t2.id !== id && t2.status === 'generating')){
-        showToast('⏳ Așteaptă să se termine task-ul curent!');
-        return;
-    }
+
     const text = t.text.trim();
     if(!text) return alert('Scrie text pentru a genera vocea.');
     const cost = getRealCharCount(text);
