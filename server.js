@@ -117,10 +117,10 @@ const VOICE_ID_MAP = {
 };
 
 // ==========================================
-// HELPER: Generare cu Minimax (fallback)
+// HELPER: Generare cu Minimax
 // ==========================================
-async function generateWithMinimax(text, voiceId, speed) {
-    // Dacă nu avem un voice_id Minimax explicit, folosim o voce default neutră
+// FIX: pitch și vol sunt acum parametri ai funcției, nu hardcodate
+async function generateWithMinimax(text, voiceId, speed, pitch = 0, vol = 1) {
     const minimaxVoiceId = voiceId || '226893671006276'; // Graceful Lady (fallback default)
 
     const response = await fetch(`${AI33_BASE_URL}/v1m/task/text-to-speech`, {
@@ -134,8 +134,8 @@ async function generateWithMinimax(text, voiceId, speed) {
             model: 'speech-2.6-hd',
             voice_setting: {
                 voice_id: minimaxVoiceId,
-                vol: 1,
-                pitch: 0,
+                vol: parseFloat(vol) || 1.0,
+                pitch: parseInt(pitch) || 0,
                 speed: parseFloat(speed) || 1.0
             },
             language_boost: 'Auto',
@@ -224,10 +224,8 @@ async function pollTask(taskId, maxWait = 75000) {
 const userQueues = {};  // { userId: Promise }
 
 function queueForUser(userId, task) {
-    // Înlănțuim task-ul după cel curent (dacă există), altfel îl rulăm direct
     const prev = userQueues[userId] || Promise.resolve();
     const next = prev.then(() => task()).finally(() => {
-        // Curățăm intrarea dacă nu mai e nimic în coadă
         if (userQueues[userId] === next) delete userQueues[userId];
     });
     userQueues[userId] = next;
@@ -239,16 +237,17 @@ function queueForUser(userId, task) {
 // ==========================================
 app.post('/api/generate', authenticate, (req, res) => {
     const userId = req.userId.toString();
-    // Respingem imediat dacă userul are deja un task activ
     if (userQueues[userId]) {
         console.warn(`🚫 [Queue] ${userId} — task respins, unul deja activ`);
         return res.status(429).json({ error: 'Ai deja un task în curs. Așteaptă să se termine!' });
     }
     queueForUser(userId, async () => { try {
         const { text, voice, stability, similarity_boost, speed } = req.body;
+        // FIX: extragem și pitch/vol din body
+        const pitch = req.body.pitch;
+        const vol = req.body.vol;
         const user = await User.findById(req.userId);
 
-        // ── Billing: abonament = gratis, fără abonament = scade caractere ──
         const subStatus = req.user?.subscriptionStatus;
         const hasActiveSub = subStatus === 'active' || subStatus === 'canceling';
 
@@ -261,12 +260,13 @@ app.post('/api/generate', authenticate, (req, res) => {
             return res.status(403).json({ error: `Caractere insuficiente. Ai nevoie de ${cost} caractere.` });
         }
 
-        console.log(`📝 [${new Date().toLocaleTimeString('ro-RO')}] ${user.name} (${user.email}) | sub=${hasActiveSub?'✅':'❌'} | chars: ${text?.length || 0} | voce: ${voice}`);
+        console.log(`📝 [${new Date().toLocaleTimeString('ro-RO')}] ${user.name} (${user.email}) | sub=${hasActiveSub?'✅':'❌'} | chars: ${text?.length || 0} | voce: ${voice} | speed: ${speed} | pitch: ${pitch} | vol: ${vol}`);
 
         // ── Cale directă Minimax (userul a ales explicit o voce Minimax) ──────
         if (req.body.provider === 'minimax') {
             try {
-                const mmUrl = await generateWithMinimax(text, req.body.minimaxVoiceId, speed);
+                // FIX: pasăm pitch și vol
+                const mmUrl = await generateWithMinimax(text, req.body.minimaxVoiceId, speed, pitch, vol);
                 const mmFile = `voice_${Date.now()}.mp3`;
                 await downloadAudio(mmUrl, path.join(DOWNLOAD_DIR, mmFile));
                 user.voice_characters -= cost; await user.save();
@@ -282,7 +282,8 @@ app.post('/api/generate', authenticate, (req, res) => {
         if (!req.body.provider) {
             try {
                 const mmVoiceId = req.body.minimaxVoiceId || req.body.voiceId || null;
-                const mmUrl = await generateWithMinimax(text, mmVoiceId, speed);
+                // FIX: pasăm pitch și vol
+                const mmUrl = await generateWithMinimax(text, mmVoiceId, speed, pitch, vol);
                 const mmFile = `voice_${Date.now()}.mp3`;
                 await downloadAudio(mmUrl, path.join(DOWNLOAD_DIR, mmFile));
                 user.voice_characters -= cost; await user.save();
@@ -341,7 +342,8 @@ app.post('/api/generate', authenticate, (req, res) => {
 
             try {
                 const minimaxVoiceId = req.body.minimaxVoiceId || null;
-                outputUrl = await generateWithMinimax(text, minimaxVoiceId, speed);
+                // FIX: pasăm pitch și vol
+                outputUrl = await generateWithMinimax(text, minimaxVoiceId, speed, pitch, vol);
                 usedProvider = 'minimax';
                 console.log(`✅ [Minimax fallback] Audio generat cu succes`);
             } catch (minimaxErr) {
@@ -367,13 +369,13 @@ app.post('/api/generate', authenticate, (req, res) => {
             try {
                 outputUrl = await pollTask(responseData.task_id);
             } catch (pollErr) {
-                // Timeout sau eroare polling ElevenLabs → marchează ca eroare în status
                 providerLog['elevenlabs'].push(false);
                 if (providerLog['elevenlabs'].length > 10) providerLog['elevenlabs'].shift();
                 console.error(`❌ [ElevenLabs] Timeout/eroare polling (${pollErr.message}) → status: ${getProviderStatus('elevenlabs')} — fallback automat la Minimax`);
                 try {
                     const minimaxVoiceId = req.body.minimaxVoiceId || null;
-                    outputUrl = await generateWithMinimax(text, minimaxVoiceId, speed, req.body.pitch, req.body.vol, req.body.language_boost);
+                    // FIX: pasăm pitch și vol
+                    outputUrl = await generateWithMinimax(text, minimaxVoiceId, speed, pitch, vol);
                     usedProvider = 'minimax';
                     console.log(`✅ [Minimax fallback după timeout EL] Audio generat cu succes`);
                 } catch (mmFallbackErr) {
@@ -424,7 +426,7 @@ setInterval(() => {
 app.get('/api/voices/minimax', async (req, res) => {
     try {
         const PAGE_SIZE = 30;
-        const TARGET = 210; // Vrem cel puțin 200 voci
+        const TARGET = 210;
         let allVoices = [];
         let page = 1;
         let hasMore = true;
@@ -478,7 +480,7 @@ app.get('/api/voices/minimax', async (req, res) => {
 // STATUS PROVIDER — partajat între toți userii
 // ══════════════════════════════════════════════════════════════
 const providerLog = {
-    elevenlabs: [], // true=ok, false=err
+    elevenlabs: [],
     minimax: []
 };
 
@@ -486,19 +488,17 @@ function getProviderStatus(p) {
     const log = providerLog[p];
     if (!log.length) return 'ok';
 
-    // Numără erorile CONSECUTIVE de la finalul log-ului
     let consecErrors = 0;
     for (let i = log.length - 1; i >= 0; i--) {
         if (!log[i]) consecErrors++;
-        else break; // s-a oprit la primul succes
+        else break;
     }
 
-    if (consecErrors >= 5) return 'down';       // 5+ erori consecutive → roșu
-    if (consecErrors >= 2) return 'unstable';   // 2-4 erori consecutive → galben
-    return 'ok';                                // 0-1 erori → verde
+    if (consecErrors >= 5) return 'down';
+    if (consecErrors >= 2) return 'unstable';
+    return 'ok';
 }
 
-// GET /api/provider-status — returnează statusul curent
 app.get('/api/provider-status', (req, res) => {
     res.json({
         elevenlabs: getProviderStatus('elevenlabs'),
@@ -507,7 +507,6 @@ app.get('/api/provider-status', (req, res) => {
     });
 });
 
-// POST /api/provider-status/report — raportat de client după generare
 app.post('/api/provider-status/report', (req, res) => {
     const { provider, success } = req.body;
     if (!['elevenlabs','minimax'].includes(provider)) return res.status(400).json({ error: 'Provider invalid' });
