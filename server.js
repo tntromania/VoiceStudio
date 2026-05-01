@@ -219,17 +219,17 @@ async function pollTask(taskId, maxWait = 300000) {
 }
 
 // ==========================================
-// QUEUE PER USER — un singur task activ/user
+// LIMITĂ CONCURENTĂ PER USER — max 3 task-uri simultane
 // ==========================================
-const userQueues = {};  // { userId: Promise }
+const MAX_CONCURRENT_PER_USER = 3;
+const userActiveTasks = {};  // { userId: number }
 
-function queueForUser(userId, task) {
-    const prev = userQueues[userId] || Promise.resolve();
-    const next = prev.then(() => task()).finally(() => {
-        if (userQueues[userId] === next) delete userQueues[userId];
+function runForUser(userId, task) {
+    userActiveTasks[userId] = (userActiveTasks[userId] || 0) + 1;
+    return task().finally(() => {
+        userActiveTasks[userId]--;
+        if (userActiveTasks[userId] <= 0) delete userActiveTasks[userId];
     });
-    userQueues[userId] = next;
-    return next;
 }
 
 // ==========================================
@@ -237,11 +237,12 @@ function queueForUser(userId, task) {
 // ==========================================
 app.post('/api/generate', authenticate, (req, res) => {
     const userId = req.userId.toString();
-    if (userQueues[userId]) {
-        console.warn(`🚫 [Queue] ${userId} — task respins, unul deja activ`);
-        return res.status(429).json({ error: 'Ai deja un task în curs. Așteaptă să se termine!' });
+    const active = userActiveTasks[userId] || 0;
+    if (active >= MAX_CONCURRENT_PER_USER) {
+        console.warn(`🚫 [Queue] ${userId} — limită atinsă (${active}/${MAX_CONCURRENT_PER_USER})`);
+        return res.status(429).json({ error: `Ai deja ${MAX_CONCURRENT_PER_USER} task-uri în curs. Așteaptă să se termine unul!` });
     }
-    queueForUser(userId, async () => { try {
+    runForUser(userId, async () => { try {
         const { text, voice, stability, similarity_boost, speed } = req.body;
         // FIX: extragem și pitch/vol din body
         const pitch = req.body.pitch;
@@ -402,7 +403,7 @@ app.post('/api/generate', authenticate, (req, res) => {
         }
 
         res.status(500).json({ error: error.message || "Eroare tehnică la generarea vocii. Încearcă din nou." });
-    } }); // end queueForUser
+    } }); // end runForUser
 });
 
 // ==========================================
