@@ -175,18 +175,13 @@
 
                 <!-- PROVIDER TOGGLE -->
                 <div class="flex bg-slate-100 rounded-xl p-1 gap-1 shrink-0">
-                    <button id="prov-btn-el" disabled title="ElevenLabs este momentan în mentenanță"
-                        class="flex-1 py-2 px-3 rounded-lg text-xs font-black transition-all text-slate-300 cursor-not-allowed select-none flex flex-col items-center justify-center gap-0.5">
-                        <div class="flex items-center gap-1.5">
-                            <i class="fa-solid fa-bolt text-slate-300"></i>
-                            ElevenLabs
-                        </div>
-                        <span class="inline-flex items-center gap-0.5 bg-amber-100 text-amber-600 text-[0.5rem] font-black px-1.5 py-0.5 rounded-full leading-none border border-amber-200">
-                            <i class="fas fa-tools" style="font-size:0.45rem"></i> Mentenanță
-                        </span>
+                    <button id="prov-btn-el" onclick="switchProvider('elevenlabs')"
+                        class="flex-1 py-2 px-3 rounded-lg text-xs font-black transition-all bg-white text-slate-900 shadow-sm flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-bolt text-amber-400"></i>
+                        ElevenLabs
                     </button>
                     <button id="prov-btn-mm" onclick="switchProvider('minimax')"
-                        class="flex-1 py-2 px-3 rounded-lg text-xs font-black transition-all bg-white text-purple-700 shadow-sm flex items-center justify-center gap-2">
+                        class="flex-1 py-2 px-3 rounded-lg text-xs font-black transition-all text-slate-500 flex items-center justify-center gap-2">
                         <i class="fa-solid fa-microchip text-purple-400"></i>
                         Minimax
                     </button>
@@ -195,7 +190,7 @@
                 <!-- Model label -->
                 <div class="flex justify-between items-center bg-slate-50 border border-slate-100 p-3 rounded-xl shrink-0">
                     <span class="text-sm font-bold text-slate-700">Model Motor AI</span>
-                    <span id="model-label" class="text-xs font-black text-transparent bg-clip-text bg-gradient-viralio"><i class="fa-solid fa-microchip text-purple-400 mr-1"></i> Minimax TTS</span>
+                    <span id="model-label" class="text-xs font-black text-transparent bg-clip-text bg-gradient-viralio"><i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Eleven v3</span>
                 </div>
 
                 <!-- VOICE PICKER TRIGGER -->
@@ -216,7 +211,7 @@
                 <div class="w-full h-px bg-slate-100 shrink-0"></div>
 
                 <!-- ── ELEVENLABS PARAMS ── -->
-                <div id="params-elevenlabs" class="space-y-5 shrink-0 hidden">
+                <div id="params-elevenlabs" class="space-y-5 shrink-0">
                     <div class="relative">
                         <div class="flex justify-between items-end mb-1">
                             <label class="text-sm font-bold text-slate-700">Stabilitate</label>
@@ -262,7 +257,7 @@
                 </div>
 
                 <!-- ── MINIMAX PARAMS ── -->
-                <div id="params-minimax" class="space-y-5 shrink-0">
+                <div id="params-minimax" class="space-y-5 shrink-0 hidden">
                     <!-- Language Boost -->
                     <div>
                         <label class="text-sm font-bold text-slate-700 mb-2 block">Language Boost</label>
@@ -530,8 +525,7 @@ window.onload = async()=>{
     updateSlider('stab'); updateSlider('sim'); updateSlider('speed');
     updateSliderMM('mm-speed'); updateSliderMM('mm-pitch'); updateSliderMM('mm-vol');
     await renderHistory();
-    switchProvider('minimax'); // forțăm Minimax la load (EL în mentenanță)
-    document.getElementById('vm-result-count').innerText = ALL_MINIMAX_VOICES.length;
+    document.getElementById('vm-result-count').innerText = ALL_VOICES.length;
     const token=getToken();
     if(token){
         try{
@@ -568,13 +562,12 @@ function switchTab(tab){
 // ══════════════════════════════════════════════════════════════
 //  2c. PROVIDER SWITCH
 // ══════════════════════════════════════════════════════════════
-let activeProvider = 'minimax'; // ElevenLabs în mentenanță
+let activeProvider = 'elevenlabs';
 // Separate active voice per provider
 let elVoice = 'Roger', elVoiceId = 'CwhRBWXzGAHq8TQ4Fs17';
 let mmVoice = 'Abbess', mmVoiceId = '209533299589205';
 
 function switchProvider(p){
-    if (p === 'elevenlabs') return; // ElevenLabs în mentenanță — blocat
     activeProvider = p;
     const isEL = p === 'elevenlabs';
     // Toggle button styles
@@ -646,8 +639,8 @@ function updateSliderMM(id){
 // ══════════════════════════════════════════════════════════════
 //  4. VOICE MODAL
 // ══════════════════════════════════════════════════════════════
-let activeVoice   = 'Abbess';
-let activeVoiceId = '209533299589205'; // Minimax default
+let activeVoice   = 'Roger';
+let activeVoiceId = 'CwhRBWXzGAHq8TQ4Fs17';
 let vmFilter = 'all';
 let vmSearch = '';
 let vmSort   = 'az';
@@ -1145,11 +1138,11 @@ function _loadAllPendingTasks(){
     } catch(e) { return []; }
 }
 
-// Polling server la fiecare 3s până la finalizare (max 3 min = 60 încercări)
+// Polling server la fiecare 3s până la finalizare (max 6 min = 120 încercări)
 function pollTaskStatus(serverTaskId, onDone, onFail){
     const token = getToken();
     if(!token) return;
-    const MAX_ATTEMPTS = 60;
+    const MAX_ATTEMPTS = 120;
     let attempts = 0;
 
     const poll = async () => {
