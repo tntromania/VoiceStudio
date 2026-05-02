@@ -271,7 +271,8 @@ app.post('/api/generate', authenticate, async (req, res) => {
         const cost = textWithoutSpaces.length;
 
         const user = await User.findById(req.userId);
-        console.log(`📝 [${new Date().toLocaleTimeString('ro-RO')}] ${user.name} | chars: ${cost} | voce: ${req.body.voice} | engine: ${req.body.provider}`);
+        const engineUsed = (req.body.provider === 'minimax') ? 'minimax' : 'elevenlabs';
+        console.log(`📝 [${new Date().toLocaleTimeString('ro-RO')}] ${user.name} | chars: ${cost} | voce: ${req.body.voice} | engine: ${engineUsed}`);
 
         const updatedUser = await User.findOneAndUpdate(
             { _id: req.userId, voice_characters: { $gte: cost } },

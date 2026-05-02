@@ -109,7 +109,16 @@ function cleanError(err) {
 
 // ------------------------------------------
 // Try with retries pe un provider
+// Anumite erori (gateway down după ce am creat deja task) nu se reîncearcă —
+// retry-ul ar însemna să re-creem task și să facem dublu-billing fără rost.
 // ------------------------------------------
+function isNonRetriableProviderError(errorMessage) {
+    if (!errorMessage) return false;
+    return errorMessage.includes('gateway down') ||         // 502/503/504 consecutive la polling
+           errorMessage.includes('polling network') ||      // erori network consecutive la polling
+           errorMessage.includes('timeout polling');        // timeout total la polling
+}
+
 async function tryWithRetries(provider, methodName, args, retries) {
     let lastError;
     for (let attempt = 0; attempt <= retries; attempt++) {
@@ -124,9 +133,15 @@ async function tryWithRetries(provider, methodName, args, retries) {
                 throw err;
             }
 
+            // Erori de polling după ce task-ul a fost creat → NU retry (ar consuma credite)
+            if (isNonRetriableProviderError(err.message)) {
+                console.warn(`⚠️ [${provider.NAME}] eroare non-retriable: ${err.message.substring(0, 80)} → fără retry`);
+                throw err;
+            }
+
             // Dacă mai avem retry-uri, așteaptă și reîncearcă
             if (attempt < retries) {
-                console.warn(`⚠️ [${provider.NAME}] încercarea ${attempt + 1}/${retries + 1} eșuată: ${err.message}. Reîncerc...`);
+                console.warn(`⚠️ [${provider.NAME}] încercarea ${attempt + 1}/${retries + 1} eșuată: ${err.message.substring(0, 80)}. Reîncerc...`);
                 await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
             }
         }

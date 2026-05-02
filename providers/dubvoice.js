@@ -9,13 +9,16 @@ const VOICE_API_BASE = process.env.VOICE_API_BASE || 'https://www.dubvoice.ai';
 const NAME = 'dubvoice';
 const TIMEOUT_REQUEST = 90000;   // dubvoice e mai lent uneori
 const POLL_INTERVAL = 3000;
-const POLL_MAX_WAIT = 300000;
+const POLL_MAX_WAIT = 180000;        // 3 min total polling
+const POLL_MAX_GATEWAY_ERRORS = 3;   // max 3 erori 502/503/504 CONSECUTIVE → fail
 
 // ------------------------------------------
 // Polling task (pattern dubvoice — status 'completed', result = url direct)
 // ------------------------------------------
 async function pollTask(taskId, maxWait = POLL_MAX_WAIT) {
     const maxAttempts = Math.floor(maxWait / POLL_INTERVAL);
+    let consecutiveGatewayErrors = 0;
+    let consecutiveNetworkErrors = 0;
 
     for (let i = 0; i < maxAttempts; i++) {
         await new Promise(r => setTimeout(r, POLL_INTERVAL));
@@ -26,15 +29,26 @@ async function pollTask(taskId, maxWait = POLL_MAX_WAIT) {
                 headers: { 'Authorization': `Bearer ${VOICE_API_KEY}` },
                 signal: AbortSignal.timeout(15000)
             });
+            consecutiveNetworkErrors = 0;
         } catch (fetchErr) {
-            console.warn(`⚠️ [${NAME}] Polling eroare attempt ${i+1}: ${fetchErr.message}`);
+            consecutiveNetworkErrors++;
+            console.warn(`⚠️ [${NAME}] Polling network err ${i+1} (consec: ${consecutiveNetworkErrors}): ${fetchErr.message}`);
+            if (consecutiveNetworkErrors >= 3) {
+                throw new Error(`PROVIDER_ERROR:[${NAME}] polling network: ${consecutiveNetworkErrors} erori consecutive`);
+            }
             continue;
         }
 
         if (response.status === 503 || response.status === 502 || response.status === 504) {
-            console.warn(`⚠️ [${NAME}] Poll ${response.status}, attempt ${i+1}, reîncercăm...`);
+            consecutiveGatewayErrors++;
+            console.warn(`⚠️ [${NAME}] Poll ${response.status} attempt ${i+1} (consec: ${consecutiveGatewayErrors}/${POLL_MAX_GATEWAY_ERRORS})`);
+            if (consecutiveGatewayErrors >= POLL_MAX_GATEWAY_ERRORS) {
+                throw new Error(`PROVIDER_ERROR:[${NAME}] gateway down: ${consecutiveGatewayErrors} erori ${response.status} consecutive`);
+            }
             continue;
         }
+        consecutiveGatewayErrors = 0;
+
         if (!response.ok) {
             throw new Error(`PROVIDER_ERROR:[${NAME}] poll status ${response.status}`);
         }

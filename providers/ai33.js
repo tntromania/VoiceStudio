@@ -12,13 +12,16 @@ const AI33_BASE_URL = 'https://api.ai33.pro';
 const NAME = 'ai33';
 const TIMEOUT_REQUEST = 12000;   // 12s pentru request-urile inițiale (foarte rapid switch)
 const POLL_INTERVAL = 3000;
-const POLL_MAX_WAIT = 300000;    // 5 min total polling
+const POLL_MAX_WAIT = 180000;        // 3 min total polling (era 5 min — prea mult)
+const POLL_MAX_GATEWAY_ERRORS = 3;   // max 3 erori 502/503/504 CONSECUTIVE → switch la secundar
 
 // ------------------------------------------
 // Polling task — funcționează pentru ambele (Minimax + ElevenLabs pe ai33)
 // ------------------------------------------
 async function pollTask(taskId, maxWait = POLL_MAX_WAIT) {
     const maxAttempts = Math.floor(maxWait / POLL_INTERVAL);
+    let consecutiveGatewayErrors = 0;
+    let consecutiveNetworkErrors = 0;
 
     for (let i = 0; i < maxAttempts; i++) {
         await new Promise(r => setTimeout(r, POLL_INTERVAL));
@@ -27,17 +30,32 @@ async function pollTask(taskId, maxWait = POLL_MAX_WAIT) {
         try {
             response = await fetch(`${AI33_BASE_URL}/v1/task/${taskId}`, {
                 headers: { 'xi-api-key': AI33_API_KEY },
-                signal: AbortSignal.timeout(30000)
+                signal: AbortSignal.timeout(15000)  // 15s/poll (era 30s — prea mult)
             });
+            consecutiveNetworkErrors = 0;
         } catch (fetchErr) {
-            console.warn(`⚠️ [${NAME}] Polling eroare attempt ${i+1}: ${fetchErr.message}`);
+            consecutiveNetworkErrors++;
+            console.warn(`⚠️ [${NAME}] Polling network err ${i+1} (consec: ${consecutiveNetworkErrors}): ${fetchErr.message}`);
+            // Dacă avem 3 erori network la rând → declarăm provider down (eligibil fallback)
+            if (consecutiveNetworkErrors >= 3) {
+                throw new Error(`PROVIDER_ERROR:[${NAME}] polling network: ${consecutiveNetworkErrors} erori consecutive`);
+            }
             continue;
         }
 
+        // Erori gateway (provider-ul returnează 502/503/504)
         if (response.status === 503 || response.status === 502 || response.status === 504) {
-            console.warn(`⚠️ [${NAME}] Poll ${response.status}, attempt ${i+1}, reîncercăm...`);
+            consecutiveGatewayErrors++;
+            console.warn(`⚠️ [${NAME}] Poll ${response.status} attempt ${i+1} (consec: ${consecutiveGatewayErrors}/${POLL_MAX_GATEWAY_ERRORS})`);
+            // Dacă avem prea multe 502/503 la rând → provider e down → declanșează fallback
+            if (consecutiveGatewayErrors >= POLL_MAX_GATEWAY_ERRORS) {
+                throw new Error(`PROVIDER_ERROR:[${NAME}] gateway down: ${consecutiveGatewayErrors} erori ${response.status} consecutive`);
+            }
             continue;
         }
+        // Reset contor pentru gateway errors (am primit alt status code)
+        consecutiveGatewayErrors = 0;
+
         if (!response.ok) {
             throw new Error(`PROVIDER_ERROR:[${NAME}] poll status ${response.status}`);
         }
@@ -51,7 +69,7 @@ async function pollTask(taskId, maxWait = POLL_MAX_WAIT) {
         }
 
         if (task.status === 'error' || task.status === 'failed') {
-            const errMsg = task.error || '';
+            const errMsg = task.error_message || task.error || '';
             if (errMsg.includes('Terms of Service') || errMsg.includes('task-failed') ||
                 errMsg.includes('blocked') || errMsg.includes('violate')) {
                 // BLOCKED nu se face fallback — e moderare reală
