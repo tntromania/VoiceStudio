@@ -10,7 +10,7 @@ const AI33_API_KEY = process.env.AI33_API_KEY;
 const AI33_BASE_URL = 'https://api.ai33.pro';
 
 const NAME = 'ai33';
-const TIMEOUT_REQUEST = 60000;   // 60s pentru request-urile inițiale
+const TIMEOUT_REQUEST = 12000;   // 12s pentru request-urile inițiale (foarte rapid switch)
 const POLL_INTERVAL = 3000;
 const POLL_MAX_WAIT = 300000;    // 5 min total polling
 

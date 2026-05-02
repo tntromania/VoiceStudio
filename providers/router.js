@@ -20,8 +20,8 @@ const PRIMARY = ai33;
 const SECONDARY = dubvoice;
 
 // ---- Configurare ----
-const MAX_RETRIES_PRIMARY = 2;            // 2 retry-uri = 3 încercări totale pe primar
-const RETRY_DELAY_MS = 1500;              // pauză scurtă între retry-uri
+const MAX_RETRIES_PRIMARY = 1;            // 1 retry = 2 încercări totale pe primar (foarte rapid switch)
+const RETRY_DELAY_MS = 1000;              // pauză scurtă între retry-uri
 const CIRCUIT_BREAKER_DURATION_MS = 15 * 60 * 1000;  // 15 min
 
 // ---- State circuit breaker (in-memory, se resetează la restart server) ----
