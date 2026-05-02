@@ -10,10 +10,11 @@ const AI33_API_KEY = process.env.AI33_API_KEY;
 const AI33_BASE_URL = 'https://api.ai33.pro';
 
 const NAME = 'ai33';
-const TIMEOUT_REQUEST = 12000;   // 12s pentru request-urile inițiale (foarte rapid switch)
+const TIMEOUT_REQUEST = 12000;       // 12s pentru request-urile inițiale
 const POLL_INTERVAL = 3000;
-const POLL_MAX_WAIT = 180000;        // 3 min total polling (era 5 min — prea mult)
+const POLL_MAX_WAIT = 100000;        // 100s — dacă task-ul e încă pending/processing → switch la secundar
 const POLL_MAX_GATEWAY_ERRORS = 3;   // max 3 erori 502/503/504 CONSECUTIVE → switch la secundar
+const POLL_LOG_EVERY = 5;            // loghează progresul la fiecare N attempts ca să vezi că e activ
 
 // ------------------------------------------
 // Polling task — funcționează pentru ambele (Minimax + ElevenLabs pe ai33)
@@ -22,6 +23,7 @@ async function pollTask(taskId, maxWait = POLL_MAX_WAIT) {
     const maxAttempts = Math.floor(maxWait / POLL_INTERVAL);
     let consecutiveGatewayErrors = 0;
     let consecutiveNetworkErrors = 0;
+    let lastStatus = null;
 
     for (let i = 0; i < maxAttempts; i++) {
         await new Promise(r => setTimeout(r, POLL_INTERVAL));
@@ -30,13 +32,12 @@ async function pollTask(taskId, maxWait = POLL_MAX_WAIT) {
         try {
             response = await fetch(`${AI33_BASE_URL}/v1/task/${taskId}`, {
                 headers: { 'xi-api-key': AI33_API_KEY },
-                signal: AbortSignal.timeout(15000)  // 15s/poll (era 30s — prea mult)
+                signal: AbortSignal.timeout(15000)
             });
             consecutiveNetworkErrors = 0;
         } catch (fetchErr) {
             consecutiveNetworkErrors++;
             console.warn(`⚠️ [${NAME}] Polling network err ${i+1} (consec: ${consecutiveNetworkErrors}): ${fetchErr.message}`);
-            // Dacă avem 3 erori network la rând → declarăm provider down (eligibil fallback)
             if (consecutiveNetworkErrors >= 3) {
                 throw new Error(`PROVIDER_ERROR:[${NAME}] polling network: ${consecutiveNetworkErrors} erori consecutive`);
             }
@@ -47,13 +48,11 @@ async function pollTask(taskId, maxWait = POLL_MAX_WAIT) {
         if (response.status === 503 || response.status === 502 || response.status === 504) {
             consecutiveGatewayErrors++;
             console.warn(`⚠️ [${NAME}] Poll ${response.status} attempt ${i+1} (consec: ${consecutiveGatewayErrors}/${POLL_MAX_GATEWAY_ERRORS})`);
-            // Dacă avem prea multe 502/503 la rând → provider e down → declanșează fallback
             if (consecutiveGatewayErrors >= POLL_MAX_GATEWAY_ERRORS) {
                 throw new Error(`PROVIDER_ERROR:[${NAME}] gateway down: ${consecutiveGatewayErrors} erori ${response.status} consecutive`);
             }
             continue;
         }
-        // Reset contor pentru gateway errors (am primit alt status code)
         consecutiveGatewayErrors = 0;
 
         if (!response.ok) {
@@ -65,6 +64,8 @@ async function pollTask(taskId, maxWait = POLL_MAX_WAIT) {
         if (task.status === 'done') {
             const audioUrl = task.metadata?.audio_url || task.output_uri || task.metadata?.output_uri;
             if (!audioUrl) throw new Error(`PROVIDER_ERROR:[${NAME}] generare ok dar lipsește URL audio`);
+            const elapsed = ((i + 1) * POLL_INTERVAL / 1000).toFixed(1);
+            console.log(`✅ [${NAME}] Task ${taskId.substring(0,8)}... DONE după ${elapsed}s`);
             return audioUrl;
         }
 
@@ -72,14 +73,22 @@ async function pollTask(taskId, maxWait = POLL_MAX_WAIT) {
             const errMsg = task.error_message || task.error || '';
             if (errMsg.includes('Terms of Service') || errMsg.includes('task-failed') ||
                 errMsg.includes('blocked') || errMsg.includes('violate')) {
-                // BLOCKED nu se face fallback — e moderare reală
                 throw new Error('BLOCKED:Textul conține conținut blocat de sistemul de moderare. Modifică textul și încearcă din nou.');
             }
             throw new Error(`PROVIDER_ERROR:[${NAME}] ${errMsg || 'eroare procesare'}`);
         }
+
+        // Task încă în lucru (pending / processing / queued / etc.)
+        // Loghează periodic ca să vedem că polling-ul e activ și pe ce status stă
+        lastStatus = task.status || 'unknown';
+        if ((i + 1) % POLL_LOG_EVERY === 0) {
+            const elapsed = ((i + 1) * POLL_INTERVAL / 1000).toFixed(0);
+            console.log(`⏳ [${NAME}] Task ${taskId.substring(0,8)}... status='${lastStatus}' după ${elapsed}s/${(maxWait/1000).toFixed(0)}s`);
+        }
     }
 
-    throw new Error(`PROVIDER_ERROR:[${NAME}] timeout polling (${maxWait}ms)`);
+    // Max wait depășit — task încă pending → switch la secundar
+    throw new Error(`PROVIDER_ERROR:[${NAME}] task stuck în status='${lastStatus}' după ${(maxWait/1000).toFixed(0)}s — switch la secundar`);
 }
 
 // ------------------------------------------

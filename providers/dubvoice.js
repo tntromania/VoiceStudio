@@ -7,10 +7,11 @@ const VOICE_API_KEY = process.env.VOICE_API_KEY;
 const VOICE_API_BASE = process.env.VOICE_API_BASE || 'https://www.dubvoice.ai';
 
 const NAME = 'dubvoice';
-const TIMEOUT_REQUEST = 90000;   // dubvoice e mai lent uneori
+const TIMEOUT_REQUEST = 90000;       // dubvoice e mai lent uneori
 const POLL_INTERVAL = 3000;
-const POLL_MAX_WAIT = 180000;        // 3 min total polling
-const POLL_MAX_GATEWAY_ERRORS = 3;   // max 3 erori 502/503/504 CONSECUTIVE → fail
+const POLL_MAX_WAIT = 180000;        // 3 min — secundarul are mai multă răbdare (e ultima opțiune)
+const POLL_MAX_GATEWAY_ERRORS = 3;
+const POLL_LOG_EVERY = 5;
 
 // ------------------------------------------
 // Polling task (pattern dubvoice — status 'completed', result = url direct)
@@ -19,6 +20,7 @@ async function pollTask(taskId, maxWait = POLL_MAX_WAIT) {
     const maxAttempts = Math.floor(maxWait / POLL_INTERVAL);
     let consecutiveGatewayErrors = 0;
     let consecutiveNetworkErrors = 0;
+    let lastStatus = null;
 
     for (let i = 0; i < maxAttempts; i++) {
         await new Promise(r => setTimeout(r, POLL_INTERVAL));
@@ -58,6 +60,8 @@ async function pollTask(taskId, maxWait = POLL_MAX_WAIT) {
         if (task.status === 'completed') {
             const audioUrl = task.result;
             if (!audioUrl) throw new Error(`PROVIDER_ERROR:[${NAME}] generare ok dar lipsește URL audio`);
+            const elapsed = ((i + 1) * POLL_INTERVAL / 1000).toFixed(1);
+            console.log(`✅ [${NAME}] Task ${String(taskId).substring(0,8)}... DONE după ${elapsed}s`);
             return audioUrl;
         }
 
@@ -69,9 +73,16 @@ async function pollTask(taskId, maxWait = POLL_MAX_WAIT) {
             }
             throw new Error(`PROVIDER_ERROR:[${NAME}] ${errMsg || 'eroare procesare'}`);
         }
+
+        // În progres → loghează periodic
+        lastStatus = task.status || 'unknown';
+        if ((i + 1) % POLL_LOG_EVERY === 0) {
+            const elapsed = ((i + 1) * POLL_INTERVAL / 1000).toFixed(0);
+            console.log(`⏳ [${NAME}] Task ${String(taskId).substring(0,8)}... status='${lastStatus}' după ${elapsed}s/${(maxWait/1000).toFixed(0)}s`);
+        }
     }
 
-    throw new Error(`PROVIDER_ERROR:[${NAME}] timeout polling (${maxWait}ms)`);
+    throw new Error(`PROVIDER_ERROR:[${NAME}] task stuck în status='${lastStatus}' după ${(maxWait/1000).toFixed(0)}s`);
 }
 
 // ------------------------------------------

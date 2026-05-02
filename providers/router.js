@@ -116,7 +116,8 @@ function isNonRetriableProviderError(errorMessage) {
     if (!errorMessage) return false;
     return errorMessage.includes('gateway down') ||         // 502/503/504 consecutive la polling
            errorMessage.includes('polling network') ||      // erori network consecutive la polling
-           errorMessage.includes('timeout polling');        // timeout total la polling
+           errorMessage.includes('timeout polling') ||      // timeout total la polling (cazul vechi)
+           errorMessage.includes('task stuck');             // task pending/processing prea mult timp
 }
 
 async function tryWithRetries(provider, methodName, args, retries) {

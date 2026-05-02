@@ -392,5 +392,5 @@ app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.ht
 app.listen(PORT, () => {
     console.log(`🚀 Voice Studio rulează pe portul ${PORT}!`);
     console.log(`🎯 PRIMAR: ai33.pro | SECUNDAR: dubvoice.ai`);
-    console.log(`⚙️  Timeout primar: 12s | Retries: 1 | Circuit breaker: 15 min`);
+    console.log(`⚙️  Timeout primar: 12s | Polling stuck max: 100s | Retries: 1 | Circuit breaker: 15 min`);
 });
