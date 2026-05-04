@@ -100,29 +100,10 @@
     <div class="absolute top-0 right-1/4 w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none z-0 mix-blend-multiply"></div>
     <div class="absolute top-[20%] left-[-10%] w-[400px] h-[400px] bg-pink-500/5 rounded-full blur-[100px] pointer-events-none z-0 mix-blend-multiply"></div>
 
-    <!-- NAV -->
-    <div class="sticky top-0 z-50 flex w-full justify-center px-2 py-4 md:p-2 max-w-screen-2xl mx-auto">
-        <nav class="w-full rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-xl md:mx-12 shadow-sm px-5 md:px-8 py-3 flex justify-between items-center">
-            <a class="flex items-center font-black text-2xl tracking-tight text-slate-900 group" href="https://viralio.ro">
-                <div class="w-9 h-9 rounded-xl bg-gradient-viralio flex items-center justify-center text-white mr-2.5 shadow-md group-hover:scale-105 transition-transform">
-                    <i class="fa-solid fa-bolt"></i>
-                </div>
-                Viralio <span class="text-sm font-medium text-slate-400 ml-2 border-l border-slate-200 pl-2 mt-1">Voice AI</span>
-            </a>
-            <div class="flex items-center justify-end space-x-3">
-                <button onclick="openLoginModal()" id="login-top-btn" class="px-5 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-viralio-600 transition-all font-semibold shadow-md text-sm">Conectează-te</button>
-                <div id="user-profile" class="hidden items-center bg-slate-50 border border-slate-200 py-1 pl-1.5 pr-1.5 rounded-full">
-                    <img id="nav-avatar" src="" class="w-8 h-8 rounded-full border border-slate-200">
-                    <div class="flex flex-col leading-none ml-2 mr-2">
-                        <span id="nav-name" class="text-xs font-bold text-slate-900 mb-0.5"></span>
-                        <span class="text-[0.65rem] font-bold text-viralio-600"><span id="nav-chars">0</span> Caractere</span>
-                    </div>
-                    <button onclick="logout()" class="p-2 text-slate-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50"><i class="fa-solid fa-power-off"></i></button>
-                </div>
-
-            </div>
-        </nav>
-    </div>
+<script>
+    window.VIRALIO_NAV_CONFIG = { currentApp: 'voice' };
+</script>
+<script src="https://viralio.ro/viralio-nav.js?v=1"></script>
 
     <!-- LOGIN MODAL -->
     <div id="login-modal">
