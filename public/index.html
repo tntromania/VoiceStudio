@@ -494,9 +494,13 @@ function updateUI(user){
     currentVoiceCharacters = user.voice_characters||0;
     if (window.ViralioNav) {
         window.ViralioNav.setUser({
-            name: user.name ? user.name.split(' ')[0] : 'User',
-            avatar: user.picture || '',
-            credits: currentVoiceCharacters.toLocaleString('ro-RO')
+            name:             user.name,
+            email:            user.email,
+            avatar:           user.picture,
+            credits:          user.credits,
+            voice_characters: user.voice_characters,
+            plan:             user.subscriptionPlan,
+            status:           user.subscriptionStatus,
         });
     }
     const si = document.getElementById('script-input');
