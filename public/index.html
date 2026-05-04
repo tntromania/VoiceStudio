@@ -100,6 +100,11 @@
     <div class="absolute top-0 right-1/4 w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none z-0 mix-blend-multiply"></div>
     <div class="absolute top-[20%] left-[-10%] w-[400px] h-[400px] bg-pink-500/5 rounded-full blur-[100px] pointer-events-none z-0 mix-blend-multiply"></div>
 
+<script>
+    window.VIRALIO_NAV_CONFIG = { currentApp: 'voice' };
+</script>
+<script src="https://viralio.ro/viralio-nav.js?v=1"></script>
+
     <!-- LOGIN MODAL -->
     <div id="login-modal">
         <div class="modal-content relative">
@@ -480,22 +485,37 @@ window.handleCredentialResponse = async function(response){
 };
 
 let currentVoiceCharacters = 0;
+function updateNavChars(){
+    if (window.ViralioNav) {
+        window.ViralioNav.setCredits(currentVoiceCharacters.toLocaleString('ro-RO'));
+    }
+}
 function updateUI(user){
-    const lb = document.getElementById('login-top-btn');
-    if(lb) lb.style.display='none';
-    const up = document.getElementById('user-profile');
-    if(up){ up.classList.remove('hidden'); up.style.display='flex'; }
-    document.getElementById('nav-name').innerText = user.name?user.name.split(' ')[0]:'User';
-    document.getElementById('nav-avatar').src = user.picture||'';
     currentVoiceCharacters = user.voice_characters||0;
-    const nc = document.getElementById('nav-chars');
-    if(nc) nc.innerText = currentVoiceCharacters.toLocaleString('ro-RO');
+    if (window.ViralioNav) {
+        window.ViralioNav.setUser({
+            name: user.name ? user.name.split(' ')[0] : 'User',
+            avatar: user.picture || '',
+            credits: currentVoiceCharacters.toLocaleString('ro-RO')
+        });
+    }
     const si = document.getElementById('script-input');
     if(si && si.value.length>0) checkFunds();
 }
-function logout(){ removeToken(); location.reload(); }
+function logout(){ 
+    removeToken(); 
+    if (window.ViralioNav) window.ViralioNav.clearUser();
+    location.reload(); 
+}
+
+function wireNavButtons(){
+    if (!window.ViralioNav) return;
+    window.ViralioNav.onLogin(() => openLoginModal());
+    window.ViralioNav.onLogout(() => logout());
+}
 
 window.onload = async()=>{
+    wireNavButtons();
     // Inițializăm cu un task default
     addTask();
     updateSlider('stab'); updateSlider('sim'); updateSlider('speed');
@@ -1012,8 +1032,7 @@ async function processTaskAudio(id){
 
         // 3. Actualizare optimistă a caracterelor în UI
         currentVoiceCharacters = Math.max(0, currentVoiceCharacters - cost);
-        const nc = document.getElementById('nav-chars');
-        if(nc) nc.innerText = currentVoiceCharacters.toLocaleString('ro-RO');
+        updateNavChars();
 
         // 4. Polling până la finalizare
         pollTaskStatus(
@@ -1033,7 +1052,7 @@ async function processTaskAudio(id){
                 // Actualizăm cu valoarea exactă de pe server
                 if(result.remaining_chars != null){
                     currentVoiceCharacters = result.remaining_chars;
-                    if(nc) nc.innerText = currentVoiceCharacters.toLocaleString('ro-RO');
+                    updateNavChars();
                 }
             },
             // onFail
@@ -1043,7 +1062,7 @@ async function processTaskAudio(id){
                 // Refetch chars — serverul a dat refund automat
                 try {
                     const meRes = await fetch('/api/auth/me',{headers:{'Authorization':`Bearer ${token}`}});
-                    if(meRes.ok){ const d = await meRes.json(); currentVoiceCharacters = d.user.voice_characters; if(nc) nc.innerText = currentVoiceCharacters.toLocaleString('ro-RO'); }
+                    if(meRes.ok){ const d = await meRes.json(); currentVoiceCharacters = d.user.voice_characters; updateNavChars(); }
                 } catch(_){}
                 await addToHistoryFailed(text, activeVoice);
                 t.status = 'idle'; renderTasks();
@@ -1167,8 +1186,7 @@ function resumePendingTask(){
                 clearPendingTask(taskId);
                 if(result.remaining_chars != null){
                     currentVoiceCharacters = result.remaining_chars;
-                    const nc = document.getElementById('nav-chars');
-                    if(nc) nc.innerText = currentVoiceCharacters.toLocaleString('ro-RO');
+                    updateNavChars();
                 }
                 await addToHistory(fullText || text, voice, result.audioUrl);
                 showRecoveryInHistory('done', taskId, voice, 0, text || fullText, result.audioUrl);
@@ -1565,9 +1583,5 @@ document.getElementById('maintenance-modal').addEventListener('click', function(
   if(e.target === this) this.style.display = 'none';
 });
 </script>
-<script>
-    window.VIRALIO_NAV_CONFIG = { currentApp: 'voice' };
-</script>
-<script src="https://viralio.ro/viralio-nav.js?v=1"></script>
 </body>
 </html>
