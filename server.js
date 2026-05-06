@@ -182,7 +182,7 @@ async function generateWithMinimax(text, voiceId, speed, pitch, vol, language_bo
         body: JSON.stringify({
             text,
             voice_id: minimaxVoiceId,
-            model: 'speech-2.6-hd',
+            model: 'speech-02-hd',
             language_boost: language_boost || 'Auto',
             speed: parseFloat(speed) || 1.0,
             pitch: parseFloat(pitch) || 0,
@@ -527,6 +527,129 @@ app.get('/api/voices/minimax', async (req, res) => {
     } catch (error) {
         console.error('Eroare voci Minimax:', error.message);
         res.status(500).json({ error: 'Nu s-au putut încărca vocile Minimax.' });
+    }
+});
+
+// ==========================================
+// RUTĂ VOCI ELEVENLABS
+// ==========================================
+app.get('/api/voices/elevenlabs', async (req, res) => {
+    try {
+        const { search = '', language = '', gender = '' } = req.query;
+
+        // Construiește URL cu filtrele opționale
+        const params = new URLSearchParams({
+            provider: 'elevenlabs',
+            page:      1,
+            page_size: 100,
+        });
+        if (search)   params.set('search',   search);
+        if (language) params.set('language', language);
+        if (gender)   params.set('gender',   gender);
+
+        // Fetch toate paginile
+        const allVoices = [];
+        let page = 1;
+
+        while (true) {
+            params.set('page', page);
+            const url = `${VOICE_API_BASE}/api/v1/voices?${params}`;
+
+            const response = await fetch(url, {
+                headers: { 'Authorization': `Bearer ${VOICE_API_KEY}` },
+                signal: AbortSignal.timeout(20000)
+            });
+
+            if (!response.ok) {
+                const err = await response.text();
+                throw new Error(`ElevenLabs voice list error ${response.status}: ${err}`);
+            }
+
+            const data = await response.json();
+            const batch = data.voices || data.data || [];
+            if (!batch.length) break;
+
+            for (const v of batch) {
+                allVoices.push({
+                    id:          v.voice_id || v.id,
+                    name:        v.name,
+                    gender:      (v.gender || 'unknown').toLowerCase(),
+                    tags:        v.labels ? Object.values(v.labels) : [],
+                    description: v.description || '',
+                    sampleAudio: v.preview_url || v.sample_url || null,
+                    provider:    'elevenlabs'
+                });
+            }
+
+            const hasMore = data.has_more ?? (batch.length === 100);
+            if (!hasMore) break;
+            page++;
+
+            // Mică pauză să nu lovim rate-limit
+            await new Promise(r => setTimeout(r, 200));
+        }
+
+        console.log(`📋 ElevenLabs: ${allVoices.length} voci încărcate`);
+        res.json({ voices: allVoices, total: allVoices.length });
+
+    } catch (error) {
+        console.error('Eroare voci ElevenLabs:', error.message);
+        res.status(500).json({ error: 'Nu s-au putut încărca vocile ElevenLabs.' });
+    }
+});
+
+// ==========================================
+// RUTĂ VOCI COMBINATĂ (elevenlabs + minimax)
+// Query: ?provider=elevenlabs|minimax|all  (default: all)
+// ==========================================
+app.get('/api/voices', async (req, res) => {
+    const provider = (req.query.provider || 'all').toLowerCase();
+
+    try {
+        const results = {};
+
+        if (provider === 'elevenlabs' || provider === 'all') {
+            const r = await fetch(`${VOICE_API_BASE}/api/v1/voices?provider=elevenlabs&page_size=100`, {
+                headers: { 'Authorization': `Bearer ${VOICE_API_KEY}` },
+                signal: AbortSignal.timeout(20000)
+            });
+            if (r.ok) {
+                const d = await r.json();
+                results.elevenlabs = (d.voices || d.data || []).map(v => ({
+                    id: v.voice_id || v.id,
+                    name: v.name,
+                    gender: (v.gender || 'unknown').toLowerCase(),
+                    sampleAudio: v.preview_url || null,
+                    provider: 'elevenlabs'
+                }));
+            }
+        }
+
+        if (provider === 'minimax' || provider === 'all') {
+            const r = await fetch(`${VOICE_API_BASE}/api/minimax-tts/voices`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${VOICE_API_KEY}` },
+                body: JSON.stringify({}),
+                signal: AbortSignal.timeout(20000)
+            });
+            if (r.ok) {
+                const d = await r.json();
+                results.minimax = (d.voices || []).map(v => ({
+                    id: v.voice_id,
+                    name: v.voice_name || v.name,
+                    tags: v.tag_list || [],
+                    sampleAudio: v.demo_audio || null,
+                    provider: 'minimax'
+                }));
+            }
+        }
+
+        const total = Object.values(results).reduce((s, arr) => s + arr.length, 0);
+        res.json({ ...results, total });
+
+    } catch (error) {
+        console.error('Eroare /api/voices:', error.message);
+        res.status(500).json({ error: 'Nu s-au putut încărca vocile.' });
     }
 });
 
