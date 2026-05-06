@@ -461,9 +461,161 @@
   </div>
 </div>
 
-<!-- Voice data (external files) -->
-<script src="/minimax-voices.js"></script>
-<script src="/voices.js"></script>
+<!-- Voice data — loaded dynamically from API -->
+<script>
+// ── Accent / gender / use guessing (mirrors fetch-voices.js) ──
+const _ACCENT_KW = {
+  american:    ['american','us ','en-us','united states'],
+  british:     ['british','uk','en-gb','england'],
+  australian:  ['australian','en-au'],
+  french:      ['french','fr-'],
+  spanish:     ['spanish','es-'],
+  portuguese:  ['portuguese','pt-','brazil'],
+  indian:      ['indian','hi-'],
+  korean:      ['korean','ko-'],
+  japanese:    ['japanese','ja-'],
+  german:      ['german','de-'],
+  italian:     ['italian','it-'],
+  arabic:      ['arabic','ar-'],
+  chinese:     ['chinese','mandarin','zh-'],
+  irish:       ['irish','en-ie'],
+  romanian:    ['romanian','ro-'],
+};
+function _guessAccent(tags=[], name='', desc=''){
+  const h=[...tags,name,desc].join(' ').toLowerCase();
+  for(const [a,kws] of Object.entries(_ACCENT_KW)) if(kws.some(k=>h.includes(k))) return a;
+  return 'other';
+}
+function _guessGender(tags=[], gender=''){
+  const g=(gender||'').toLowerCase();
+  if(g==='female'||g==='male') return g;
+  const t=tags.map(s=>s.toLowerCase());
+  if(t.includes('female')) return 'female';
+  if(t.includes('male'))   return 'male';
+  return 'special';
+}
+function _guessUse(tags=[], desc=''){
+  const h=[...tags,desc].join(' ').toLowerCase();
+  if(h.includes('narrat')||h.includes('audiobook')) return 'narration';
+  if(h.includes('social')||h.includes('tiktok'))    return 'social';
+  if(h.includes('gaming')||h.includes('game'))      return 'gaming';
+  if(h.includes('news')||h.includes('anchor'))      return 'news';
+  if(h.includes('podcast'))                         return 'podcast';
+  if(h.includes('professional')||h.includes('corporate')) return 'professional';
+  if(h.includes('entertainment')||h.includes('character')) return 'entertainment';
+  if(h.includes('wellness')||h.includes('meditation')) return 'wellness';
+  if(h.includes('convers'))                         return 'conversational';
+  return 'general';
+}
+
+// ── Color palettes & helpers ──────────────────────────────────
+const ACCENT_COLORS = {
+  american:'#6366f1', british:'#0ea5e9', australian:'#10b981',
+  french:'#f59e0b',   spanish:'#ef4444', portuguese:'#8b5cf6',
+  indian:'#f97316',   korean:'#ec4899',  japanese:'#14b8a6',
+  german:'#64748b',   italian:'#84cc16', arabic:'#a78bfa',
+  chinese:'#fb923c',  irish:'#22c55e',   romanian:'#ec4899',
+  other:'#94a3b8',
+};
+function vColor(v){ return ACCENT_COLORS[v.accent]||ACCENT_COLORS.other; }
+
+const MINIMAX_ACCENT_COLORS = { ...ACCENT_COLORS };
+function mmColor(v){ return MINIMAX_ACCENT_COLORS[v.accent]||MINIMAX_ACCENT_COLORS.other; }
+
+const USE_LABELS = {
+  conversational:'💬 Conversațional', narration:'📖 Narațiune',
+  social:'📱 Social Media',           entertainment:'🎭 Entertainment',
+  characters:'🎮 Personaje',          news:'📺 Știri',
+  professional:'💼 Profesional',      gaming:'🎮 Gaming',
+  podcast:'🎙 Podcast',               wellness:'🧘 Wellness',
+  general:'⚡ General',
+};
+
+// ── Voice arrays — populate via loadVoices() ─────────────────
+let ALL_VOICES         = [];
+let ALL_MINIMAX_VOICES = [];
+let _voicesLoaded      = false;
+
+function _normalizeEL(v){
+  const tags = v.tags || (v.labels ? Object.values(v.labels) : []);
+  const accent = _guessAccent(tags, v.name||'', v.description||'');
+  const gender = _guessGender(tags, v.gender||'');
+  const use    = _guessUse(tags, v.description||'');
+  return {
+    id:          v.id || v.voice_id,
+    name:        v.name,
+    style:       [accent, v.description||'voice'].filter(Boolean).join(' · '),
+    gender,
+    tags:        [gender, ...tags.map(t=>t.toLowerCase())].filter(Boolean),
+    accent,
+    use,
+    sampleAudio: v.sampleAudio || v.preview_url || v.sample_url || null,
+    provider:    'elevenlabs',
+  };
+}
+
+function _normalizeMM(v){
+  const tags   = v.tags || v.tag_list || [];
+  const accent = v.accent || _guessAccent(tags, v.name||'', v.description||'');
+  const gender = _guessGender(tags, v.gender||'');
+  const use    = v.use || _guessUse(tags, v.description||'');
+  return {
+    id:          String(v.id || v.voice_id),
+    name:        v.name || v.voice_name,
+    style:       [
+                   tags.find(t=>!['Male','Female','Clone','Young','Adult','Mature'].includes(t)) || accent,
+                   tags.find(t=>['Young','Adult','Mature'].includes(t))?.toLowerCase() || 'adult',
+                   v.description || 'standard',
+                 ].filter(Boolean).join(' · '),
+    gender,
+    tags:        tags.map(t=>t.toLowerCase()).filter(Boolean),
+    accent,
+    use,
+    sampleAudio: v.sampleAudio || v.demo_audio || v.sample_url || null,
+    provider:    'minimax',
+  };
+}
+
+async function loadVoices(){
+  const grid    = document.getElementById('vm-grid');
+  const countEl = document.getElementById('vm-result-count');
+
+  // Loading skeleton
+  if(grid) grid.innerHTML = `
+    <div style="grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:48px 0;color:#94a3b8;">
+      <span style="font-size:13px;font-weight:700;">Se încarcă vocile…</span>
+      <div style="width:36px;height:36px;border:3px solid #e2e8f0;border-top-color:#6366f1;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+    </div>`;
+
+  try {
+    // Fetch ElevenLabs + Minimax în paralel
+    const [elRes, mmRes] = await Promise.allSettled([
+      fetch('/api/voices/elevenlabs', { signal: AbortSignal.timeout(25000) }),
+      fetch('/api/voices/minimax',    { signal: AbortSignal.timeout(25000) }),
+    ]);
+
+    if(elRes.status==='fulfilled' && elRes.value.ok){
+      const d = await elRes.value.json();
+      ALL_VOICES = (d.voices||[]).map(_normalizeEL);
+    }
+    if(mmRes.status==='fulfilled' && mmRes.value.ok){
+      const d = await mmRes.value.json();
+      ALL_MINIMAX_VOICES = (d.voices||[]).map(_normalizeMM);
+    }
+
+    _voicesLoaded = true;
+    if(countEl) countEl.innerText = ALL_VOICES.length;
+    renderVoiceGrid();
+    console.log(`🎤 Voci încărcate: EL=${ALL_VOICES.length} MM=${ALL_MINIMAX_VOICES.length}`);
+  } catch(e){
+    console.error('Eroare la încărcarea vocilor:', e);
+    if(grid) grid.innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:48px 0;color:#ef4444;font-size:13px;font-weight:700;">
+        ⚠️ Nu s-au putut încărca vocile. Reîncarcă pagina.
+      </div>`;
+  }
+}
+</script>
 
 <script>
 // ══════════════════════════════════════════════════════════════
