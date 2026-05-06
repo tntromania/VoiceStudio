@@ -595,6 +595,7 @@ function switchProvider(p){
     if(av){ av.innerText=initials; av.style.background=col; }
     activeVoice = name; activeVoiceId = vid;
     // Re-render modal grid
+    vmShowing = VM_PAGE_SIZE;
     renderVoiceGrid();
 }
 
@@ -647,6 +648,11 @@ let vmSort   = 'az';
 let previewAudio = null;
 let previewActiveId = null;
 
+// ── Lazy paging: încarcă câte 50 de voci o dată ──
+const VM_PAGE_SIZE = 50;
+let vmShowing = VM_PAGE_SIZE;
+let vmScrollObserver = null;
+
 function openVoiceModal(){
     document.getElementById('vm-overlay').classList.add('vm-open');
     document.body.style.overflow='hidden';
@@ -659,6 +665,7 @@ function openVoiceModal(){
     const sub=document.getElementById('vm-header-sub-count');
     if(sub) sub.innerText=(isMM?ALL_MINIMAX_VOICES:ALL_VOICES).length;
     setVmFilter('all', false);
+    vmShowing = VM_PAGE_SIZE;
     renderVoiceGrid();
     setTimeout(()=>{ const s=document.getElementById('vm-search-input'); if(s) s.focus(); },350);
 }
@@ -671,6 +678,7 @@ function closeVoiceModal(){
 function setVmFilter(f, render=true){
     vmFilter=f;
     document.querySelectorAll('.vmf').forEach(b=>b.classList.toggle('vmf-on', b.dataset.f===f));
+    vmShowing = VM_PAGE_SIZE;
     if(render) renderVoiceGrid();
 }
 
@@ -678,6 +686,7 @@ function setSortMode(mode){
     vmSort=mode;
     document.querySelectorAll('.vm-sort-btn').forEach(b=>b.classList.remove('active'));
     const btn=document.getElementById(`sort-${mode}`); if(btn) btn.classList.add('active');
+    vmShowing = VM_PAGE_SIZE;
     renderVoiceGrid();
 }
 
@@ -750,11 +759,20 @@ function renderVoiceGrid(){
     if(countEl) countEl.innerText=list.length;
 
     if(!list.length){
-        grid.innerHTML=''; empty.style.display='flex'; return;
+        grid.innerHTML=''; empty.style.display='flex';
+        // dezactivează observer-ul când nu sunt voci
+        if(vmScrollObserver){ vmScrollObserver.disconnect(); vmScrollObserver = null; }
+        return;
     }
     empty.style.display='none';
 
-    grid.innerHTML=list.map((v,i)=>{
+    // ── Lazy paging: afișăm doar primele vmShowing voci ──
+    const totalCount = list.length;
+    const showCount = Math.min(vmShowing, totalCount);
+    const visibleList = list.slice(0, showCount);
+    const hasMore = showCount < totalCount;
+
+    grid.innerHTML=visibleList.map((v,i)=>{
         const col=isMM?mmColor(v):vColor(v);
         const initials=v.name.replace(/[^A-Za-zÀ-ž ]/g,'').split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||v.name.substring(0,2).toUpperCase();
         const isActive=v.id===activeVoiceId;
@@ -790,6 +808,53 @@ function renderVoiceGrid(){
             ${isActive?'<div class="vm-active-badge"><i class="fa-solid fa-check"></i> Activ</div>':''}
         </div>`;
     }).join('');
+
+    // ── Footer: buton "Încarcă mai multe" + sentinel pentru auto-load ──
+    // Curățăm vechiul observer (dacă există) ca să nu se declanșeze pe sentinel-ul vechi
+    if(vmScrollObserver){ vmScrollObserver.disconnect(); vmScrollObserver = null; }
+
+    if(hasMore){
+        const remaining = totalCount - showCount;
+        const nextBatch = Math.min(VM_PAGE_SIZE, remaining);
+        const footer = document.createElement('div');
+        footer.id = 'vm-load-more-wrap';
+        footer.style.cssText = 'grid-column: 1 / -1; display:flex; flex-direction:column; align-items:center; gap:8px; padding:18px 0 8px;';
+        footer.innerHTML = `
+            <button id="vm-load-more-btn" type="button"
+                style="background:#4f46e5;color:#fff;border:none;border-radius:12px;padding:10px 22px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(79,70,229,0.25);transition:background .15s;"
+                onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">
+                <i class="fa-solid fa-plus" style="margin-right:6px;font-size:11px;"></i> Încarcă încă ${nextBatch} voci
+            </button>
+            <div style="font-size:11px;color:#94a3b8;font-weight:500;">Afișat ${showCount} din ${totalCount}</div>
+            <div id="vm-scroll-sentinel" style="width:100%;height:1px;"></div>
+        `;
+        grid.appendChild(footer);
+
+        // Click pe buton → mai multe voci
+        const btn = footer.querySelector('#vm-load-more-btn');
+        btn.addEventListener('click', () => {
+            vmShowing += VM_PAGE_SIZE;
+            renderVoiceGrid();
+        });
+
+        // Auto-load când sentinelul intră în viewport (scroll infinit)
+        const sentinel = footer.querySelector('#vm-scroll-sentinel');
+        const scrollRoot = document.querySelector('.vm-body') || null;
+        try {
+            vmScrollObserver = new IntersectionObserver((entries) => {
+                for(const entry of entries){
+                    if(entry.isIntersecting){
+                        vmScrollObserver.disconnect();
+                        vmScrollObserver = null;
+                        vmShowing += VM_PAGE_SIZE;
+                        renderVoiceGrid();
+                        break;
+                    }
+                }
+            }, { root: scrollRoot, rootMargin: '200px' });
+            vmScrollObserver.observe(sentinel);
+        } catch(e){ /* IntersectionObserver indisponibil — rămâne doar butonul */ }
+    }
 }
 
 function pickVoice(name, vid, style, gender){
@@ -816,7 +881,7 @@ function pickVoice(name, vid, style, gender){
 // Search & keyboard
 document.addEventListener('DOMContentLoaded',()=>{
     const si=document.getElementById('vm-search-input');
-    if(si) si.addEventListener('input',e=>{ vmSearch=e.target.value; renderVoiceGrid(); });
+    if(si) si.addEventListener('input',e=>{ vmSearch=e.target.value; vmShowing = VM_PAGE_SIZE; renderVoiceGrid(); });
     document.getElementById('vm-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('vm-overlay')) closeVoiceModal(); });
     document.addEventListener('keydown',e=>{
         if((e.metaKey||e.ctrlKey)&&e.key==='k'){ e.preventDefault(); openVoiceModal(); }
