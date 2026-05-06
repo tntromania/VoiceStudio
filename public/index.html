@@ -161,8 +161,8 @@
                         <i class="fa-solid fa-bolt text-amber-400"></i>
                         ElevenLabs
                     </button>
-                    <button id="prov-btn-mm" onclick="showMaintenanceModal()"
-                        class="flex-1 py-2 px-3 rounded-lg text-xs font-black transition-all text-slate-400 flex items-center justify-center gap-2 cursor-pointer opacity-70">
+                    <button id="prov-btn-mm" onclick="switchProvider('minimax')"
+                        class="flex-1 py-2 px-3 rounded-lg text-xs font-black transition-all text-slate-400 flex items-center justify-center gap-2">
                         <i class="fa-solid fa-microchip text-purple-300"></i>
                         Minimax
                     </button>
@@ -461,161 +461,9 @@
   </div>
 </div>
 
-<!-- Voice data — loaded dynamically from API -->
-<script>
-// ── Accent / gender / use guessing (mirrors fetch-voices.js) ──
-const _ACCENT_KW = {
-  american:    ['american','us ','en-us','united states'],
-  british:     ['british','uk','en-gb','england'],
-  australian:  ['australian','en-au'],
-  french:      ['french','fr-'],
-  spanish:     ['spanish','es-'],
-  portuguese:  ['portuguese','pt-','brazil'],
-  indian:      ['indian','hi-'],
-  korean:      ['korean','ko-'],
-  japanese:    ['japanese','ja-'],
-  german:      ['german','de-'],
-  italian:     ['italian','it-'],
-  arabic:      ['arabic','ar-'],
-  chinese:     ['chinese','mandarin','zh-'],
-  irish:       ['irish','en-ie'],
-  romanian:    ['romanian','ro-'],
-};
-function _guessAccent(tags=[], name='', desc=''){
-  const h=[...tags,name,desc].join(' ').toLowerCase();
-  for(const [a,kws] of Object.entries(_ACCENT_KW)) if(kws.some(k=>h.includes(k))) return a;
-  return 'other';
-}
-function _guessGender(tags=[], gender=''){
-  const g=(gender||'').toLowerCase();
-  if(g==='female'||g==='male') return g;
-  const t=tags.map(s=>s.toLowerCase());
-  if(t.includes('female')) return 'female';
-  if(t.includes('male'))   return 'male';
-  return 'special';
-}
-function _guessUse(tags=[], desc=''){
-  const h=[...tags,desc].join(' ').toLowerCase();
-  if(h.includes('narrat')||h.includes('audiobook')) return 'narration';
-  if(h.includes('social')||h.includes('tiktok'))    return 'social';
-  if(h.includes('gaming')||h.includes('game'))      return 'gaming';
-  if(h.includes('news')||h.includes('anchor'))      return 'news';
-  if(h.includes('podcast'))                         return 'podcast';
-  if(h.includes('professional')||h.includes('corporate')) return 'professional';
-  if(h.includes('entertainment')||h.includes('character')) return 'entertainment';
-  if(h.includes('wellness')||h.includes('meditation')) return 'wellness';
-  if(h.includes('convers'))                         return 'conversational';
-  return 'general';
-}
-
-// ── Color palettes & helpers ──────────────────────────────────
-const ACCENT_COLORS = {
-  american:'#6366f1', british:'#0ea5e9', australian:'#10b981',
-  french:'#f59e0b',   spanish:'#ef4444', portuguese:'#8b5cf6',
-  indian:'#f97316',   korean:'#ec4899',  japanese:'#14b8a6',
-  german:'#64748b',   italian:'#84cc16', arabic:'#a78bfa',
-  chinese:'#fb923c',  irish:'#22c55e',   romanian:'#ec4899',
-  other:'#94a3b8',
-};
-function vColor(v){ return ACCENT_COLORS[v.accent]||ACCENT_COLORS.other; }
-
-const MINIMAX_ACCENT_COLORS = { ...ACCENT_COLORS };
-function mmColor(v){ return MINIMAX_ACCENT_COLORS[v.accent]||MINIMAX_ACCENT_COLORS.other; }
-
-const USE_LABELS = {
-  conversational:'💬 Conversațional', narration:'📖 Narațiune',
-  social:'📱 Social Media',           entertainment:'🎭 Entertainment',
-  characters:'🎮 Personaje',          news:'📺 Știri',
-  professional:'💼 Profesional',      gaming:'🎮 Gaming',
-  podcast:'🎙 Podcast',               wellness:'🧘 Wellness',
-  general:'⚡ General',
-};
-
-// ── Voice arrays — populate via loadVoices() ─────────────────
-let ALL_VOICES         = [];
-let ALL_MINIMAX_VOICES = [];
-let _voicesLoaded      = false;
-
-function _normalizeEL(v){
-  const tags = v.tags || (v.labels ? Object.values(v.labels) : []);
-  const accent = _guessAccent(tags, v.name||'', v.description||'');
-  const gender = _guessGender(tags, v.gender||'');
-  const use    = _guessUse(tags, v.description||'');
-  return {
-    id:          v.id || v.voice_id,
-    name:        v.name,
-    style:       [accent, v.description||'voice'].filter(Boolean).join(' · '),
-    gender,
-    tags:        [gender, ...tags.map(t=>t.toLowerCase())].filter(Boolean),
-    accent,
-    use,
-    sampleAudio: v.sampleAudio || v.preview_url || v.sample_url || null,
-    provider:    'elevenlabs',
-  };
-}
-
-function _normalizeMM(v){
-  const tags   = v.tags || v.tag_list || [];
-  const accent = v.accent || _guessAccent(tags, v.name||'', v.description||'');
-  const gender = _guessGender(tags, v.gender||'');
-  const use    = v.use || _guessUse(tags, v.description||'');
-  return {
-    id:          String(v.id || v.voice_id),
-    name:        v.name || v.voice_name,
-    style:       [
-                   tags.find(t=>!['Male','Female','Clone','Young','Adult','Mature'].includes(t)) || accent,
-                   tags.find(t=>['Young','Adult','Mature'].includes(t))?.toLowerCase() || 'adult',
-                   v.description || 'standard',
-                 ].filter(Boolean).join(' · '),
-    gender,
-    tags:        tags.map(t=>t.toLowerCase()).filter(Boolean),
-    accent,
-    use,
-    sampleAudio: v.sampleAudio || v.demo_audio || v.sample_url || null,
-    provider:    'minimax',
-  };
-}
-
-async function loadVoices(){
-  const grid    = document.getElementById('vm-grid');
-  const countEl = document.getElementById('vm-result-count');
-
-  // Loading skeleton
-  if(grid) grid.innerHTML = `
-    <div style="grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:48px 0;color:#94a3b8;">
-      <span style="font-size:13px;font-weight:700;">Se încarcă vocile…</span>
-      <div style="width:36px;height:36px;border:3px solid #e2e8f0;border-top-color:#6366f1;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
-    </div>`;
-
-  try {
-    // Fetch ElevenLabs + Minimax în paralel
-    const [elRes, mmRes] = await Promise.allSettled([
-      fetch('/api/voices/elevenlabs', { signal: AbortSignal.timeout(25000) }),
-      fetch('/api/voices/minimax',    { signal: AbortSignal.timeout(25000) }),
-    ]);
-
-    if(elRes.status==='fulfilled' && elRes.value.ok){
-      const d = await elRes.value.json();
-      ALL_VOICES = (d.voices||[]).map(_normalizeEL);
-    }
-    if(mmRes.status==='fulfilled' && mmRes.value.ok){
-      const d = await mmRes.value.json();
-      ALL_MINIMAX_VOICES = (d.voices||[]).map(_normalizeMM);
-    }
-
-    _voicesLoaded = true;
-    if(countEl) countEl.innerText = ALL_VOICES.length;
-    renderVoiceGrid();
-    console.log(`🎤 Voci încărcate: EL=${ALL_VOICES.length} MM=${ALL_MINIMAX_VOICES.length}`);
-  } catch(e){
-    console.error('Eroare la încărcarea vocilor:', e);
-    if(grid) grid.innerHTML = `
-      <div style="grid-column:1/-1;text-align:center;padding:48px 0;color:#ef4444;font-size:13px;font-weight:700;">
-        ⚠️ Nu s-au putut încărca vocile. Reîncarcă pagina.
-      </div>`;
-  }
-}
-</script>
+<!-- Voice data (external files) -->
+<script src="/minimax-voices.js"></script>
+<script src="/voices.js"></script>
 
 <script>
 // ══════════════════════════════════════════════════════════════
@@ -717,7 +565,7 @@ function switchTab(tab){
 let activeProvider = 'elevenlabs';
 // Separate active voice per provider
 let elVoice = 'Roger', elVoiceId = 'CwhRBWXzGAHq8TQ4Fs17';
-let mmVoice = 'Abbess', mmVoiceId = '209533299589205';
+let mmVoice = 'Abbess', mmVoiceId = 'English_Abbess';
 
 function switchProvider(p){
     activeProvider = p;
@@ -845,13 +693,27 @@ function stopPreview(){
 function togglePreview(vid, btn){
     if(previewActiveId===vid){ stopPreview(); return; }
     stopPreview();
+    // Caută vocea în lista activă pentru a obține sampleAudio
+    const isMM = activeProvider === 'minimax';
+    const sourceList = isMM ? ALL_MINIMAX_VOICES : ALL_VOICES;
+    const v = sourceList.find(x => x.id === vid);
+    const url = v && v.sampleAudio ? v.sampleAudio : null;
+    if(!url){
+        // Fallback la fișiere locale (legacy)
+        const fallback = `/assets/previews/${vid}.mp3`;
+        previewAudio = new Audio(fallback);
+    } else {
+        previewAudio = new Audio(url);
+    }
     previewActiveId=vid;
-    const url=`/assets/previews/${vid}.mp3`;
-    previewAudio=new Audio(url);
-    previewAudio.play().catch(()=>{});
+    previewAudio.play().catch(err => {
+        console.warn('Preview audio failed:', err);
+        stopPreview();
+    });
     btn.innerHTML='<i class="fa-solid fa-pause" style="font-size:.6rem"></i>';
     btn.classList.add('playing');
     previewAudio.onended=()=>{ btn.innerHTML='<i class="fa-solid fa-play" style="font-size:.6rem;margin-left:1px"></i>'; btn.classList.remove('playing'); previewActiveId=null; previewAudio=null; };
+    previewAudio.onerror=()=>{ stopPreview(); };
 }
 
 function renderVoiceGrid(){
@@ -861,8 +723,13 @@ function renderVoiceGrid(){
     let list=[...sourceList];
 
     // Filter
-    const accentFilters=['american','british','australian','spanish','french','indian','korean','japanese','german','italian','arabic','chinese','irish','romanian','portuguese'];
-    if(accentFilters.includes(vmFilter))       list=list.filter(v=>v.accent===vmFilter);
+    const accentFilters=['american','british','australian','spanish','french','indian','korean','japanese','german','italian','arabic','chinese','irish','romanian','portuguese','russian','turkish','english'];
+    if(isMM && accentFilters.includes(vmFilter)) {
+        // La Minimax, filtrul de limbă caută în tags (care vin direct din API),
+        // nu în accent (care e calculat euristic și deseori e 'other').
+        list = list.filter(v => v.tags && v.tags.some(t => t.toLowerCase().includes(vmFilter)));
+    }
+    else if(accentFilters.includes(vmFilter))   list=list.filter(v=>v.accent===vmFilter);
     else if(vmFilter==='male')    list=list.filter(v=>v.gender==='male');
     else if(vmFilter==='female')  list=list.filter(v=>v.gender==='female');
     else if(vmFilter==='special') list=list.filter(v=>v.gender==='special');
@@ -895,21 +762,30 @@ function renderVoiceGrid(){
         const genderClass=v.gender==='female'?'vm-g-f':v.gender==='male'?'vm-g-m':'vm-g-s';
         const useLabel=USE_LABELS[v.use]||'⚡ General';
         const delay=Math.min(i*0.015, 0.3);
+        // Escape safe pentru atribute HTML și onclick JS string
+        const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        // Pentru onclick: facem mai întâi escape JS (\ și ') apoi escape HTML (" → &quot;).
+        // Astfel `O'Reilly` → JS: O\'Reilly → HTML: O\'Reilly (fără modificare suplimentară).
+        // Dacă avem `"` în nume, JS îl lasă, HTML îl transformă în &quot; → la parsare devine `"` valid în string single-quoted.
+        const escJs = s => String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,' ').replace(/\r/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        const hasPreview = !!v.sampleAudio;
         return `<div class="vm-card${isActive?' vm-card-active':''}" 
                      style="animation-delay:${delay}s"
-                     onclick="pickVoice('${v.name.replace(/'/g,"\\'")}','${v.id}','${v.style.replace(/'/g,"\\'")}','${v.gender}')">
+                     onclick="pickVoice('${escJs(v.name)}','${escJs(v.id)}','${escJs(v.style)}','${v.gender}')">
             <div class="vm-card-top">
-                <div class="vm-avatar" style="background:${col}" title="${v.accent}">${initials}</div>
+                <div class="vm-avatar" style="background:${col}" title="${esc(v.accent)}">${esc(initials)}</div>
                 <div class="vm-card-info">
-                    <div class="vm-card-name">${v.name}</div>
+                    <div class="vm-card-name">${esc(v.name)}</div>
                     <span class="vm-gender-badge ${genderClass}">${genderLabel}</span>
                 </div>
-                <button class="vm-play-btn${previewActiveId===v.id?' playing':''}" data-vid="${v.id}" 
-                        onclick="event.stopPropagation();togglePreview('${v.id}',this)" title="Preview voce">
+                ${hasPreview ? `<button class="vm-play-btn${previewActiveId===v.id?' playing':''}" data-vid="${esc(v.id)}" 
+                        onclick="event.stopPropagation();togglePreview('${escJs(v.id)}',this)" title="Preview voce">
                     <i class="fa-solid ${previewActiveId===v.id?'fa-pause':'fa-play'}" style="font-size:.6rem;margin-left:${previewActiveId===v.id?'0':'1px'}"></i>
-                </button>
+                </button>` : `<div class="vm-play-btn" style="opacity:.25;cursor:not-allowed" title="Preview indisponibil">
+                    <i class="fa-solid fa-volume-xmark" style="font-size:.6rem"></i>
+                </div>`}
             </div>
-            <div class="vm-style">${v.style}</div>
+            <div class="vm-style">${esc(v.style)}</div>
             <div class="vm-use-pill">${useLabel}</div>
             ${isActive?'<div class="vm-active-badge"><i class="fa-solid fa-check"></i> Activ</div>':''}
         </div>`;
