@@ -196,7 +196,46 @@ async function generateWithMinimax(text, voiceId, speed, pitch, vol, language_bo
         throw new Error(`Minimax error ${response.status}: ${errBody}`);
     }
 
-    const data = await response.json();
+    // ── Upstream-ul poate răspunde în 2 feluri: ──
+    //   A) JSON cu { success, audio_url, characters_used }   → comportament vechi
+    //   B) Binar MP3 direct (Content-Type: audio/mpeg)        → salvăm local și
+    //      întoarcem un URL public ca să rămână compatibil cu downloadAudio()
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+    const isAudio = contentType.includes('audio/') ||
+                    contentType.includes('octet-stream') ||
+                    contentType.includes('mpeg');
+
+    if (isAudio) {
+        // Răspuns binar — salvăm direct fișierul
+        const buf = Buffer.from(await response.arrayBuffer());
+
+        // Sanity check: header MP3 valid (ID3 sau frame sync 0xFFFB/0xFFF3/0xFFF2)
+        const isMp3 =
+            (buf[0] === 0x49 && buf[1] === 0x44 && buf[2] === 0x33) || // "ID3"
+            (buf[0] === 0xFF && (buf[1] & 0xE0) === 0xE0);             // MPEG sync
+        if (!isMp3 || buf.length < 100) {
+            throw new Error('Minimax: răspuns audio invalid (nu pare MP3).');
+        }
+
+        const fileName = `mm_${Date.now()}_${Math.random().toString(36).slice(2,8)}.mp3`;
+        const filePath = path.join(DOWNLOAD_DIR, fileName);
+        fs.writeFileSync(filePath, buf);
+
+        const localUrl = `/downloads/${fileName}`;
+        console.log(`✅ [Minimax] Audio binar salvat (${buf.length} bytes) → ${localUrl}`);
+        // Marcaj special: începe cu "/downloads/" → semnal că e deja salvat local.
+        return localUrl;
+    }
+
+    // Caz A: JSON (comportament vechi)
+    let data;
+    try {
+        data = await response.json();
+    } catch(parseErr) {
+        // Defensiv: dacă upstream-ul a mințit cu Content-Type-ul, încercăm fallback la text
+        throw new Error(`Minimax: răspuns invalid (nu e nici JSON, nici audio). ${parseErr.message}`);
+    }
+
     if (!data.success || !data.audio_url) {
         throw new Error('Minimax: eroare la generare audio.');
     }
@@ -287,10 +326,18 @@ async function runGenerationBackground(taskId, userId, cost, body) {
         if (provider === 'minimax') {
             // — Minimax —
             const mmUrl = await generateWithMinimax(text, minimaxVoiceId, speed, pitch, vol, language_boost);
-            const mmFile = `voice_${Date.now()}.mp3`;
-            await downloadAudio(mmUrl, path.join(DOWNLOAD_DIR, mmFile));
-            audioUrl = `/downloads/${mmFile}`;
-            console.log(`🎙️ [BG-Minimax] ${mmFile} generat pentru task ${taskId}`);
+
+            if (mmUrl.startsWith('/downloads/')) {
+                // Audio deja salvat local de generateWithMinimax (răspuns binar) — nu mai descărcăm
+                audioUrl = mmUrl;
+                console.log(`🎙️ [BG-Minimax] ${mmUrl.split('/').pop()} (binar) gata pentru task ${taskId}`);
+            } else {
+                // URL extern → descărcăm
+                const mmFile = `voice_${Date.now()}.mp3`;
+                await downloadAudio(mmUrl, path.join(DOWNLOAD_DIR, mmFile));
+                audioUrl = `/downloads/${mmFile}`;
+                console.log(`🎙️ [BG-Minimax] ${mmFile} generat pentru task ${taskId}`);
+            }
 
         } else {
             // — ElevenLabs —
