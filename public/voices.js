@@ -3,6 +3,7 @@
 //  Toate vocile ElevenLabs disponibile prin DubVoice
 // ============================================================
 const ALL_VOICES = [
+  {id:"TX3LPaxmHKxFdv7VOQHJ", name:"Viralio", style:"romanian · voice", gender:"special", tags:["special","viralio"], accent:"romanian", use:"general"},
   {id:"1Ui4bRFeTBgvTVC1eVFz", name:"A Carlisle - Charismatic Storyteller", style:"other · voice", gender:"male", tags:["male"], accent:"other", use:"general", sampleAudio:"https://storage.googleapis.com/eleven-public-prod/database/user/gmwCb2LNv8cGIceBnAbCtmvuHsn2/voices/1Ui4bRFeTBgvTVC1eVFz/wL4EdLp3QaPsKUFU7Z0J.mp3"},
   {id:"enI44SIiQ2GsKAhWRSpZ", name:"A Lost American - Soft, Bleak & Wistful", style:"american · voice", gender:"male", tags:["male"], accent:"american", use:"general", sampleAudio:"https://storage.googleapis.com/eleven-public-prod/database/workspace/425b3b9205bd4a289e3e1622bade4c7c/voices/enI44SIiQ2GsKAhWRSpZ/78c77f21-15ac-4f1c-92b8-082d7ee9ee05.mp3"},
   {id:"YZHSTqsq1isdXNsFLzBw", name:"A smart, smooth, charming female voice for sales and persuasion", style:"other · voice", gender:"female", tags:["female"], accent:"other", use:"general", sampleAudio:"https://storage.googleapis.com/eleven-public-prod/database/workspace/d9f8d4d169cc4a54a44c0c4d690a2638/voices/YZHSTqsq1isdXNsFLzBw/6d125c76-1966-4968-95dd-67b4e3c6861b.mp3"},

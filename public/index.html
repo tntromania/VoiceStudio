@@ -91,6 +91,11 @@
         .task-mini-bar { flex: 1; height: 4px; background: #e2e8f0; border-radius: 99px; overflow: hidden; cursor: pointer; }
         .task-mini-fill { height: 100%; background: #4f46e5; border-radius: 99px; width: 0%; transition: width 0.1s linear; pointer-events: none; }
         .spin-sm { border: 2.5px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; width: 14px; height: 14px; animation: spin 0.8s linear infinite; display: inline-block; }
+
+        /* ── Favorite button on voice cards ── */
+        .vm-fav-btn { width: 26px; height: 26px; border-radius: 8px; border: 1.5px solid #e2e8f0; background: #f8fafc; color: #cbd5e1; display:flex; align-items:center; justify-content:center; font-size: 0.7rem; cursor: pointer; transition: all 0.15s; flex-shrink:0; margin-right: 2px; }
+        .vm-fav-btn:hover { border-color: #fbbf24; background: #fffbeb; color: #f59e0b; }
+        .vm-fav-btn.vm-fav-active { border-color: #fbbf24; background: #fffbeb; color: #f59e0b; }
     </style>
 </head>
 <body class="md:p-4 selection:bg-viralio-500 selection:text-white">
@@ -417,13 +422,14 @@
       </div>
       <!-- ElevenLabs filters -->
       <div id="vm-filters-el" class="vm-filters" role="group">
-        <button class="vmf vmf-on" data-f="all"     onclick="setVmFilter('all')">⚡ Toate</button>
-        <button class="vmf" data-f="male"    onclick="setVmFilter('male')">Masculine</button>
-        <button class="vmf" data-f="female"  onclick="setVmFilter('female')">Feminine</button>
-        <button class="vmf" data-f="young"   onclick="setVmFilter('young')">🔥 Tineri</button>
-        <button class="vmf" data-f="mature"  onclick="setVmFilter('mature')">🎙 Maturi</button>
-        <button class="vmf" data-f="shared"  onclick="setVmFilter('shared')">🌐 Comunitate</button>
-        <button class="vmf" data-f="special" onclick="setVmFilter('special')">✨ Speciale</button>
+        <button class="vmf vmf-on" data-f="all"       onclick="setVmFilter('all')">⚡ Toate</button>
+        <button class="vmf" data-f="favorites"         onclick="setVmFilter('favorites')" id="vmf-favorites-btn">⭐ Favorite</button>
+        <button class="vmf" data-f="male"              onclick="setVmFilter('male')">Masculine</button>
+        <button class="vmf" data-f="female"            onclick="setVmFilter('female')">Feminine</button>
+        <button class="vmf" data-f="young"             onclick="setVmFilter('young')">🔥 Tineri</button>
+        <button class="vmf" data-f="mature"            onclick="setVmFilter('mature')">🎙 Maturi</button>
+        <button class="vmf" data-f="shared"            onclick="setVmFilter('shared')">🌐 Comunitate</button>
+        <button class="vmf" data-f="special"           onclick="setVmFilter('special')">✨ Speciale</button>
       </div>
       <!-- Minimax filters -->
       <div id="vm-filters-mm" class="vm-filters hidden" role="group">
@@ -648,6 +654,24 @@ let vmSort   = 'az';
 let previewAudio = null;
 let previewActiveId = null;
 
+// ── Favorite ──────────────────────────────────────────────────
+function getFavorites(){
+    try { return JSON.parse(localStorage.getItem('viralio_fav_voices')||'[]'); } catch(e){ return []; }
+}
+function saveFavorites(arr){
+    try { localStorage.setItem('viralio_fav_voices', JSON.stringify(arr)); } catch(e){}
+}
+function isFavorite(vid){ return getFavorites().includes(vid); }
+function toggleFavorite(vid, e){
+    if(e){ e.stopPropagation(); }
+    let favs = getFavorites();
+    if(favs.includes(vid)) favs = favs.filter(f=>f!==vid);
+    else favs.push(vid);
+    saveFavorites(favs);
+    renderVoiceGrid();
+    if(vmFilter==='favorites' && getFavorites().length===0){ setVmFilter('all'); }
+}
+
 // ── Lazy paging: încarcă câte 50 de voci o dată ──
 const VM_PAGE_SIZE = 50;
 let vmShowing = VM_PAGE_SIZE;
@@ -739,12 +763,13 @@ function renderVoiceGrid(){
         list = list.filter(v => v.tags && v.tags.some(t => t.toLowerCase().includes(vmFilter)));
     }
     else if(accentFilters.includes(vmFilter))   list=list.filter(v=>v.accent===vmFilter);
-    else if(vmFilter==='male')    list=list.filter(v=>v.gender==='male');
-    else if(vmFilter==='female')  list=list.filter(v=>v.gender==='female');
-    else if(vmFilter==='special') list=list.filter(v=>v.gender==='special');
-    else if(vmFilter==='shared')  list=list.filter(v=>v.tags&&v.tags.includes('shared'));
-    else if(vmFilter==='young')   list=list.filter(v=>v.tags&&v.tags.includes('young'));
-    else if(vmFilter==='mature')  list=list.filter(v=>v.tags&&v.tags.includes('mature'));
+    else if(vmFilter==='male')      list=list.filter(v=>v.gender==='male');
+    else if(vmFilter==='female')    list=list.filter(v=>v.gender==='female');
+    else if(vmFilter==='special')   list=list.filter(v=>v.gender==='special');
+    else if(vmFilter==='shared')    list=list.filter(v=>v.tags&&v.tags.includes('shared'));
+    else if(vmFilter==='young')     list=list.filter(v=>v.tags&&v.tags.includes('young'));
+    else if(vmFilter==='mature')    list=list.filter(v=>v.tags&&v.tags.includes('mature'));
+    else if(vmFilter==='favorites') { const favs=getFavorites(); list=list.filter(v=>favs.includes(v.id)); }
 
     if(q) list=list.filter(v=>v.name.toLowerCase().includes(q)||v.style.toLowerCase().includes(q)||v.accent.toLowerCase().includes(q));
 
@@ -752,6 +777,16 @@ function renderVoiceGrid(){
     if(vmSort==='az')     list.sort((a,b)=>a.name.localeCompare(b.name));
     else if(vmSort==='gender') list.sort((a,b)=>a.gender.localeCompare(b.gender)||a.name.localeCompare(b.name));
     else if(vmSort==='use')    list.sort((a,b)=>a.use.localeCompare(b.use)||a.name.localeCompare(b.name));
+
+    // Pin favorites to top (except when on favorites filter — already filtered)
+    if(vmFilter !== 'favorites'){
+        const favs = getFavorites();
+        list.sort((a,b)=>{
+            const af = favs.includes(a.id) ? 0 : 1;
+            const bf = favs.includes(b.id) ? 0 : 1;
+            return af - bf;
+        });
+    }
 
     const grid=document.getElementById('vm-grid');
     const empty=document.getElementById('vm-empty');
@@ -787,6 +822,7 @@ function renderVoiceGrid(){
         // Dacă avem `"` în nume, JS îl lasă, HTML îl transformă în &quot; → la parsare devine `"` valid în string single-quoted.
         const escJs = s => String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,' ').replace(/\r/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         const hasPreview = !!v.sampleAudio;
+        const isFav = getFavorites().includes(v.id);
         return `<div class="vm-card${isActive?' vm-card-active':''}" 
                      style="animation-delay:${delay}s"
                      onclick="pickVoice('${escJs(v.name)}','${escJs(v.id)}','${escJs(v.style)}','${v.gender}')">
@@ -796,6 +832,11 @@ function renderVoiceGrid(){
                     <div class="vm-card-name">${esc(v.name)}</div>
                     <span class="vm-gender-badge ${genderClass}">${genderLabel}</span>
                 </div>
+                <button class="vm-fav-btn${isFav?' vm-fav-active':''}" data-vid="${esc(v.id)}"
+                        onclick="event.stopPropagation();toggleFavorite('${escJs(v.id)}',event)"
+                        title="${isFav?'Elimină din favorite':'Adaugă la favorite'}">
+                    <i class="fa-${isFav?'solid':'regular'} fa-star"></i>
+                </button>
                 ${hasPreview ? `<button class="vm-play-btn${previewActiveId===v.id?' playing':''}" data-vid="${esc(v.id)}" 
                         onclick="event.stopPropagation();togglePreview('${escJs(v.id)}',this)" title="Preview voce">
                     <i class="fa-solid ${previewActiveId===v.id?'fa-pause':'fa-play'}" style="font-size:.6rem;margin-left:${previewActiveId===v.id?'0':'1px'}"></i>
