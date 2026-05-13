@@ -93,9 +93,10 @@
         .spin-sm { border: 2.5px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; width: 14px; height: 14px; animation: spin 0.8s linear infinite; display: inline-block; }
 
         /* ── Favorite button on voice cards ── */
-        .vm-fav-btn { width: 26px; height: 26px; border-radius: 8px; border: 1.5px solid #e2e8f0; background: #f8fafc; color: #cbd5e1; display:flex; align-items:center; justify-content:center; font-size: 0.7rem; cursor: pointer; transition: all 0.15s; flex-shrink:0; margin-right: 2px; }
-        .vm-fav-btn:hover { border-color: #fbbf24; background: #fffbeb; color: #f59e0b; }
-        .vm-fav-btn.vm-fav-active { border-color: #fbbf24; background: #fffbeb; color: #f59e0b; }
+        .vm-card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+        .vm-fav-btn { width: 24px; height: 24px; border-radius: 7px; border: 1.5px solid transparent; background: transparent; color: #4b5563; display:flex; align-items:center; justify-content:center; font-size: 0.65rem; cursor: pointer; transition: all 0.15s; flex-shrink:0; }
+        .vm-fav-btn:hover { border-color: #fbbf24; background: rgba(251,191,36,0.1); color: #f59e0b; }
+        .vm-fav-btn.vm-fav-active { color: #f59e0b; }
     </style>
 </head>
 <body class="md:p-4 selection:bg-viralio-500 selection:text-white">
@@ -778,14 +779,19 @@ function renderVoiceGrid(){
     else if(vmSort==='gender') list.sort((a,b)=>a.gender.localeCompare(b.gender)||a.name.localeCompare(b.name));
     else if(vmSort==='use')    list.sort((a,b)=>a.use.localeCompare(b.use)||a.name.localeCompare(b.name));
 
-    // Pin favorites to top (except when on favorites filter — already filtered)
+    // Pin: Viralio (TX3LPaxmHKxFdv7VOQHJ) always first, then favorites, then rest
     if(vmFilter !== 'favorites'){
         const favs = getFavorites();
+        const VIRALIO_ID = 'TX3LPaxmHKxFdv7VOQHJ';
         list.sort((a,b)=>{
-            const af = favs.includes(a.id) ? 0 : 1;
-            const bf = favs.includes(b.id) ? 0 : 1;
-            return af - bf;
+            const av = a.id===VIRALIO_ID ? 0 : (favs.includes(a.id) ? 1 : 2);
+            const bv = b.id===VIRALIO_ID ? 0 : (favs.includes(b.id) ? 1 : 2);
+            return av - bv;
         });
+    } else {
+        // Chiar și pe filtrul favorites, Viralio (dacă e favorit) e primul
+        const VIRALIO_ID = 'TX3LPaxmHKxFdv7VOQHJ';
+        list.sort((a,b)=>(a.id===VIRALIO_ID?-1:b.id===VIRALIO_ID?1:0));
     }
 
     const grid=document.getElementById('vm-grid');
@@ -832,11 +838,6 @@ function renderVoiceGrid(){
                     <div class="vm-card-name">${esc(v.name)}</div>
                     <span class="vm-gender-badge ${genderClass}">${genderLabel}</span>
                 </div>
-                <button class="vm-fav-btn${isFav?' vm-fav-active':''}" data-vid="${esc(v.id)}"
-                        onclick="event.stopPropagation();toggleFavorite('${escJs(v.id)}',event)"
-                        title="${isFav?'Elimină din favorite':'Adaugă la favorite'}">
-                    <i class="fa-${isFav?'solid':'regular'} fa-star"></i>
-                </button>
                 ${hasPreview ? `<button class="vm-play-btn${previewActiveId===v.id?' playing':''}" data-vid="${esc(v.id)}" 
                         onclick="event.stopPropagation();togglePreview('${escJs(v.id)}',this)" title="Preview voce">
                     <i class="fa-solid ${previewActiveId===v.id?'fa-pause':'fa-play'}" style="font-size:.6rem;margin-left:${previewActiveId===v.id?'0':'1px'}"></i>
@@ -845,7 +846,14 @@ function renderVoiceGrid(){
                 </div>`}
             </div>
             <div class="vm-style">${esc(v.style)}</div>
-            <div class="vm-use-pill">${useLabel}</div>
+            <div class="vm-card-footer">
+                <div class="vm-use-pill">${useLabel}</div>
+                <button class="vm-fav-btn${isFav?' vm-fav-active':''}" data-vid="${esc(v.id)}"
+                        onclick="event.stopPropagation();toggleFavorite('${escJs(v.id)}',event)"
+                        title="${isFav?'Elimină din favorite':'Adaugă la favorite'}">
+                    <i class="fa-${isFav?'solid':'regular'} fa-star"></i>
+                </button>
+            </div>
             ${isActive?'<div class="vm-active-badge"><i class="fa-solid fa-check"></i> Activ</div>':''}
         </div>`;
     }).join('');
